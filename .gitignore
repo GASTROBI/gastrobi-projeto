@@ -1,0 +1,12 @@
+# Ignorar clientes
+01_Clientes/
+
+# Ignorar backups
+Z_Arquivos_Antigos_Backup/
+
+# Windows
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
