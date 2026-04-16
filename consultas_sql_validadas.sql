@@ -1,3 +1,44 @@
+/*******************************************************************************
+* NOME DO PROJETO: GASTROBI - BUSINESS INTELLIGENCE PARA FOOD SERVICE
+* CONSULTOR RESPONSÁVEL: SÉRGIO PAULO DOS SANTOS
+* CLIENTE: CAFÉ GOURMET
+* DOCUMENTO: KPI_MATRIZ_BCG_CAFÉ
+* DATA: 16/04/2026
+*
+* DESCRIÇÃO: CLASSIFICAÇÃO ESTRATÉGICA DOS PRODUTOS DO CAFÉ GOURMET.
+* IDENTIFICAÇÃO DE ITENS COM PREJUÍZO (ABACAXIS) E OPORTUNIDADES.
+*******************************************************************************/
+
+WITH estatisticas AS (
+    SELECT 
+        produto,
+        SUM(qtd) as volume,
+        SUM(valor_total - (custo_total_insumos * qtd)) as lucro_total_bruto,
+        AVG((valor_total - (custo_total_insumos * qtd)) / NULLIF(valor_total, 0)) * 100 as margem_media_pct
+    FROM `gastrobi-core-profissional.cafe_gourmet_lab.fato_vendas_validada`
+    GROUP BY produto
+),
+medias AS (
+    SELECT 
+        AVG(volume) as media_volume,
+        AVG(lucro_total_bruto) as media_lucro
+    FROM estatisticas
+)
+SELECT 
+    e.produto,
+    e.volume,
+    ROUND(e.lucro_total_bruto, 2) as lucro_bruto,
+    ROUND(e.margem_media_pct, 2) as margem_pct,
+    CASE 
+        WHEN e.lucro_total_bruto < 0 THEN '⚠️ PREJUÍZO CRÍTICO (Preço abaixo do custo)'
+        WHEN e.volume >= m.media_volume AND e.lucro_total_bruto >= m.media_lucro THEN '🌟 ESTRELA (Vende muito / Lucra muito)'
+        WHEN e.volume >= m.media_volume AND e.lucro_total_bruto < m.media_lucro THEN '🐄 VACA LEITEIRA (Gira muito / Lucro baixo)'
+        WHEN e.volume < m.media_volume AND e.lucro_total_bruto >= m.media_lucro THEN '❓ INTERROGAÇÃO (Vende pouco / Lucro alto)'
+        ELSE ' Pineapple ABACAXI (Vende pouco / Lucro baixo)'
+    END as classificacao_bcg
+FROM estatisticas e, medias m
+ORDER BY lucro_total_bruto DESC;
+
 /* KPI ESPECIAL: MATRIZ BCG GASTROBI
 VALIDAÇÃO: CONSULTOR SERGIO SANTOS
 CLASSIFICAÇÃO: Estrela, Vaca Leiteira, Interrogação ou Abacaxi
