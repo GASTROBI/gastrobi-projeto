@@ -1,3 +1,4 @@
+/* VERSÃO COM ALERTA DE PREJUÍZO CRÍTICO */
 /*******************************************************************************
 * NOME DO PROJETO: GASTROBI - BUSINESS INTELLIGENCE PARA FOOD SERVICE
 * CONSULTOR RESPONSÁVEL: SÉRGIO PAULO DOS SANTOS
