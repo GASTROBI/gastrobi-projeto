@@ -1,0 +1,52 @@
+# ==============================================================================
+# PROJETO: V2_GASTROBI
+# MÓDULO: CRIAÇÃO DA ESTRUTURA COMPLETA (DIM + FATO)
+# DATA: 19/04/2026
+# VERSÃO: 1.0.3
+# OBJETIVO: Criar schema completo baseado na metodologia validada
+# AUTOR: Sergio Santos / Gemini Collaborator
+# ==============================================================================
+
+from google.cloud import bigquery
+
+def criar_estrutura_bi():
+    project_id = "v2-gastrobi-lab"
+    dataset_id = "dados_laboratorio"
+    client = bigquery.Client(project=project_id)
+
+    # 1. Tabela Mestre (DIM)
+    schema_dim = [
+        bigquery.SchemaField("nome_produto_normalizado", "STRING", mode="REQUIRED"),
+        bigquery.SchemaField("ncm", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("tributacao", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("custo_unitario", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("valor_gorjeta_padrao", "FLOAT", mode="NULLABLE"),
+    ]
+    
+    # 2. Tabela de Vendas (FATO)
+    schema_fato = [
+        bigquery.SchemaField("data", "DATE", mode="NULLABLE"),
+        bigquery.SchemaField("produto_original", "STRING", mode="NULLABLE"), # Nome como veio do sistema
+        bigquery.SchemaField("nome_produto_normalizado", "STRING", mode="REQUIRED"), # Chave para ligar na DIM
+        bigquery.SchemaField("qtd", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("valor_unitario", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("valor_total", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("faturamento_bruto", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("gorjeta", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("custo_total_insumos", "FLOAT", mode="NULLABLE"),
+        bigquery.SchemaField("canal_vendas", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("forma_pagamento", "STRING", mode="NULLABLE"),
+        bigquery.SchemaField("nome_cliente", "STRING", mode="NULLABLE"),
+    ]
+
+    for nome_tabela, schema in [("dim_produtos", schema_dim), ("fato_vendas", schema_fato)]:
+        table_id = f"{project_id}.{dataset_id}.{nome_tabela}"
+        table = bigquery.Table(table_id, schema=schema)
+        try:
+            client.create_table(table)
+            print(f"Sucesso! Tabela {nome_tabela} criada.")
+        except Exception as e:
+            print(f"Aviso na tabela {nome_tabela}: {e}")
+
+if __name__ == "__main__":
+    criar_estrutura_bi()
