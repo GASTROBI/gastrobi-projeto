@@ -1,0 +1,6 @@
+[25/03/2026 11:04:42] 🚀 Iniciando Varredura Multi-Cliente...
+[25/03/2026 11:04:42] ✅ Lido com sucesso: Pizzaria_Sergio -> vendas_pizzaria.csv
+[25/03/2026 11:04:43] ✅ Lido com sucesso: Churrascaria_Top -> vendas_churrascaria.txt
+[25/03/2026 11:04:43] ⚠️ ERRO CRÍTICO: Cliente Cafe_Gourmet enviou arquivo data_venda,nome_item,ncm_simulado,v.txt sem a coluna NCM!
+[25/03/2026 11:04:44] ⏳ Enviando 10 linhas para o BigQuery...
+[25/03/2026 11:04:48] 🏆 SUCESSO TOTAL: Nuvem atualizada para todos os clientes.

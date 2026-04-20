@@ -1,0 +1,63 @@
+import pandas as pd
+from google.cloud import bigquery
+
+def processar_inteligencia():
+    print("🛠️ Ajustando os 3 Conselhos Dinâmicos do GastroBI...")
+    sheet_id = "1u0lS6LlI-_4oKHifHvwAKbqVlymPXbWtTOmRRKLXx_Q"
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    
+    try:
+        df_custos = pd.read_csv(url)
+        total_custo_fixo = df_custos[df_custos['Cliente'] == 'Pizzaria_Sergio']['Valor (R$)'].apply(
+            lambda x: float(str(x).replace('R$', '').replace('.', '').replace(',', '.').strip())
+        ).sum()
+    except Exception as e:
+        print(f"❌ Erro na planilha: {e}")
+        return
+
+    client_bq = bigquery.Client(project="gastrobi-core-profissional")
+    
+    sql_query = f"""
+    CREATE OR REPLACE TABLE `gastrobi-core-profissional.staging.vendas_processadas` AS
+    WITH base AS (
+        SELECT 
+            origem_arquivo as cliente,
+            SAFE.PARSE_DATE('%d/%m/%Y', data_venda) as data_venda,
+            nome_item as item_produto, 
+            CAST(ncm_simulado AS STRING) as ncm_venda,
+            CAST(valor_total_bruto AS FLOAT64) as valor_venda
+        FROM `gastrobi-core-profissional.raw.vendas_brutas`
+    ),
+    calculos AS (
+        SELECT 
+            *,
+            -- CONSELHO 1: IMPOSTOS (RADAR DO DONO)
+            'Economia detectada: O seu mix de bebidas gerou este valor de crédito que pode ser abatido do seu imposto simples.' as Conselho_Dinamico_Impostos,
+            
+            -- CONSELHO 2: ENGENHARIA DE CARDÁPIO (MENU INTELIGENTE)
+            'Engenharia de Cardápio Ativa: Foco em Margem e Giro para otimizar seus pratos.' as Conselho_Engenharia_Cardapio,
+            
+            -- CONSELHO 3: ANÁLISE DE VENDAS (RADAR DO DONO / VENDAS)
+            'Análise de Vendas: Identificamos o comportamento de compra para melhorar seu ticket médio.' as Conselho_Dinamico_Vendas,
+            
+            -- MÉTRICAS COMPLEMENTARES
+            IF(STARTS_WITH(ncm_venda, '22'), valor_venda * 0.0925, 0) as credito_recuperavel,
+            (valor_venda * 0.35) as CMV, 
+            (valor_venda * 0.40) as Margem_Contribuicao_Porc,
+            {total_custo_fixo} as custo_fixo_total,
+            {total_custo_fixo} / NULLIF(COUNT(*) OVER(PARTITION BY cliente), 0) as custo_f_rateado,
+            (valor_venda * 0.15) as custo_variavel_item
+        FROM base
+    )
+    SELECT *, (valor_venda - (custo_variavel_item + custo_f_rateado)) as ebitda_item
+    FROM calculos
+    """
+
+    try:
+        client_bq.query(sql_query).result()
+        print("✅ SUCESSO! Os 3 conselhos estão agora em colunas separadas e corretas.")
+    except Exception as e:
+        print(f"❌ Erro: {e}")
+
+if __name__ == "__main__":
+    processar_inteligencia()

@@ -1,0 +1,4 @@
+Data,Cenário de Teste,Resultado Esperado,Resultado Real,Impacto,Status,Ação/Correção Realizada
+2026-04-19,Desliguei a internet no meio do processamento,Sistema pausa e tenta reconectar,O programa travou e fechou,Crítico,Resolvido,Implementado Try/Except com bloco de erro
+2026-04-19,Arquivo enviado com extensão incorreta (.txt),O sistema deveria ignorar ou alertar,Sistema tentou ler e deu erro de codificação,Baixo,Pendente,Necessário criar filtro de extensão na leitura
+2026-04-19,Cliente cadastrado sem a palavra _ativo,O sistema deveria pular a pasta,O sistema tentou processar e falhou,Médio,Pendente,Criar regra de filtro por nome de pasta

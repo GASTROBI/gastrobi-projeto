@@ -1,0 +1,4 @@
+data;produto;qtd;valor;faturamento;canal_venda;forma_pagamento
+14/04/2026;Burger Classico;2;35,00;70,00;Balcao;Pix
+14/04/2026;Coca-Cola Lata;1;7,00;7,00;Delivery;Cartao Credito
+14/04/2026;Batata Frita;1;15,00;15,00;Mesa;Dinheiro

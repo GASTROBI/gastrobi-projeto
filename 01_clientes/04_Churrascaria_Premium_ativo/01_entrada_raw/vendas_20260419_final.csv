@@ -1,0 +1,5 @@
+[
+  {"data": "2026-04-05", "produto": "Rodizio Individual", "categoria": "Comida", "faturamento": 800.00, "servico": 80.00},
+  {"data": "2026-04-05", "produto": "Agua Mineral", "categoria": "Bebidas", "faturamento": 30.00, "servico": 3.00},
+  {"data": "2026-04-05", "produto": "Cerveja Stella", "categoria": "Bebidas", "faturamento": 150.00, "servico": 15.00}
+]

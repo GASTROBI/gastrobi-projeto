@@ -1,0 +1,2 @@
+2026-04-19 09:20:08,787 - WARNING - No project ID could be determined. Consider running `gcloud config set project` or setting the GOOGLE_CLOUD_PROJECT environment variable
+2026-04-19 09:20:10,794 - INFO - Sucesso! Tabela v2-gastrobi-lab.dados_laboratorio.tabela_mestre_produtos criada com sucesso.
