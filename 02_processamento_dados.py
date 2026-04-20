@@ -5,6 +5,11 @@
 # VERSÃO: 1.0.0
 # OBJETIVO: Clonar tabelas do Dataset Mestre para os Datasets de Clientes
 # ==============================================================================
+import datetime
+
+# Isso vai criar um arquivo .txt na mesma pasta do seu script
+with open("log_execucao.txt", "a") as f:
+    f.write(f"O script rodou com sucesso em: {datetime.datetime.now()}\n")
 
 from google.cloud import bigquery
 
