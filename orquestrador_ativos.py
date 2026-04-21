@@ -1,131 +1,63 @@
 # ==============================================================================
 # PROJETO: V2_GASTROBI
-# MÓDULO: ORQUESTRADOR DE DADOS
-# DATA: 19/04/2026
-# VERSÃO: 4.11.0 (VERSÃO DE CORREÇÃO FINAL PARA FORMATOS HÍBRIDOS)
-# DIRETRIZES: 
-# 1. Padronização Rígida de Cabeçalhos.
-# 2. Detector Universal: Lê JSON, CSV, TXT e Híbridos sem falhar.
-# 3. Debug em tempo real.
-# AUTOR: Sergio Santos / Gemini Collaborator
+# MÓDULO: ORQUESTRADOR DE ATIVOS
+# OBJETIVO: Sincronização de arquivos raw para BigQuery
 # ==============================================================================
 
 import pandas as pd
 import os
-import json
-import io
 from google.cloud import bigquery
 
-# CONFIGURAÇÕES
-base_path = r'G:\Drives compartilhados\V2_GASTROBI\01_clientes'
+# Inicializa o cliente do BigQuery
 project_id = "v2-gastrobi-lab"
 client = bigquery.Client(project=project_id)
 
-# MAPA FIXO DE CABEÇALHOS
-MAPA_FIXO = {
-    'nome_item': 'produto_original', 'produto': 'produto_original', 
-    'item': 'produto_original', 'nome_produto': 'produto_original',
-    'faturamento': 'faturamento_bruto', 'valor': 'valor_total', 
-    'quantidade': 'qtd', 'valor_total_bruto': 'faturamento_bruto',
-    'data_venda': 'data', 'data': 'data', 'servico': 'tributacao'
+# Caminho base dos clientes
+base_path = r'G:\Drives compartilhados\V2_GASTROBI\01_clientes'
+
+# Dicionário que ensina ao código como ler cada formato
+leitores = {
+    '.csv': pd.read_csv,
+    '.json': pd.read_json,
+    '.xlsx': pd.read_excel,
+    '.txt': lambda x: pd.read_csv(x, sep='\t')
 }
 
-def forcar_alinhamento_schema(df, table_ref):
-    """Busca o schema da tabela no BQ e força o DataFrame a se alinhar."""
-    try:
-        table = client.get_table(table_ref)
-        schema = table.schema
-        df_final = pd.DataFrame()
-        for field in schema:
-            col = field.name
-            if col in df.columns:
-                if field.field_type == 'INTEGER':
-                    df_final[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype('Int64')
-                elif field.field_type == 'FLOAT':
-                    df_final[col] = df[col].astype(str).str.replace(',', '.', regex=False)
-                    df_final[col] = pd.to_numeric(df_final[col], errors='coerce').fillna(0.0).astype(float)
-                else:
-                    df_final[col] = df[col].astype(str)
-            else:
-                if field.field_type == 'INTEGER': df_final[col] = 0
-                elif field.field_type == 'FLOAT': df_final[col] = 0.0
-                else: df_final[col] = "0"
-        return df_final
-    except Exception as e:
-        return df.astype(str)
-
-def ler_arquivo_seguro(caminho):
-    """Detector Universal: Tenta ler JSON, CSV, ou texto bruto se falhar."""
-    try:
-        with open(caminho, 'r', encoding='utf-8-sig') as f:
-            content = f.read().strip()
-        
-        # 1. Tenta JSON
-        if content.startswith('{') or content.startswith('['):
-            try:
-                data = json.loads(content)
-                return pd.json_normalize(data)
-            except:
-                return pd.read_json(io.StringIO(content), lines=True, dtype=str)
-        
-        # 2. Tenta CSV/TXT com detectores de separador
-        for sep in [',', ';', '\t', '|']:
-            try:
-                df = pd.read_csv(io.StringIO(content), sep=sep, engine='python', dtype=str, on_bad_lines='skip')
-                if len(df.columns) > 1: return df
-            except: continue
-            
-        return None
-    except Exception as e:
-        print(f"    -> [ERRO DE LEITURA] {e}")
-        return None
-
-def processar_etl(caminho_arquivo, dataset_id):
-    """Processa um único arquivo de cliente."""
-    df = ler_arquivo_seguro(caminho_arquivo)
-    if df is None: raise Exception("Arquivo em formato irreconhecível.")
-
-    df.columns = df.columns.str.lower().str.strip().str.replace(' ', '_')
-    df = df.loc[:, ~df.columns.str.contains('^unnamed')]
-    df.rename(columns=MAPA_FIXO, inplace=True)
+def carregar_no_bigquery(df, dataset_id, table_name):
+    """Tenta carregar. Se a estrutura do arquivo for diferente da tabela, ele reporta e pula."""
+    table_ref = f"{project_id}.{dataset_id}.{table_name}"
     
-    if 'produto_original' not in df.columns:
-        raise Exception(f"Cabeçalho inválido. Colunas encontradas: {list(df.columns)}")
-
     try:
-        query = f"SELECT * FROM `{project_id}.{dataset_id}.dim_produtos`"
-        df_dim = client.query(query).to_dataframe().astype(str)
-        df_final = pd.merge(df, df_dim, left_on='produto_original', right_on='nome_produto_normalizado', how='left')
-    except:
-        df_final = df
+        # Apenas tenta carregar. Se falhar, o 'except' abaixo trata.
+        job = client.load_table_from_dataframe(df, table_ref)
+        job.result()
+        print(f"     [ENTREGUE] Dados enviados para o BigQuery na tabela {table_name}.")
+    except Exception as e:
+        # Aqui é onde ele não quebra nada. Ele só avisa que não subiu.
+        print(f"     [AVISO] Arquivo incompatível com a tabela {table_name}. (Não foi carregado).")
 
-    table_ref = f"{project_id}.{dataset_id}.fato_vendas"
-    df_final = forcar_alinhamento_schema(df_final, table_ref)
+print("--- Iniciando Orquestração Inteligente ---")
+
+for cliente in os.listdir(base_path):
+    caminho_cliente = os.path.join(base_path, cliente)
+    caminho_raw = os.path.join(caminho_cliente, '01_entrada_raw')
     
-    job = client.load_table_from_dataframe(
-        df_final, 
-        table_ref, 
-        job_config=bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-    )
-    job.result()
-    return True
-
-def run_orquestrador():
-    """Loop principal."""
-    for cliente in os.listdir(base_path):
-        caminho_raw = os.path.join(base_path, cliente, '01_entrada_raw')
+    if os.path.isdir(caminho_cliente) and os.path.exists(caminho_raw):
         dataset_id = cliente.lower().replace(" ", "_")
+        print(f"\n[CLIENTE: {cliente}]")
         
-        if os.path.exists(caminho_raw):
-            for arquivo in os.listdir(caminho_raw):
-                if "final" in arquivo.lower():
-                    print(f"Iniciando: {cliente} -> {arquivo}")
-                    try:
-                        processar_etl(os.path.join(caminho_raw, arquivo), dataset_id)
-                        print(f"    -> [SUCESSO] {dataset_id}")
-                    except Exception as e:
-                        print(f"    -> [ERRO CRÍTICO NO CLIENTE {cliente}]: {e}")
-                        continue 
+        for arquivo in os.listdir(caminho_raw):
+            caminho_completo = os.path.join(caminho_raw, arquivo)
+            extensao = os.path.splitext(arquivo)[1].lower()
+            
+            if extensao in leitores:
+                try:
+                    df = leitores[extensao](caminho_completo)
+                    carregar_no_bigquery(df, dataset_id, "fato_vendas")
+                    print(f"     [SUCESSO] {arquivo} lido.")
+                except Exception as e:
+                    print(f"     [ERRO] Falha na leitura do arquivo {arquivo}: {e}")
+            else:
+                print(f"  -> [IGNORADO] Formato não suportado: {arquivo}")
 
-if __name__ == "__main__":
-    run_orquestrador()
+print("\n--- Orquestração Finalizada ---")

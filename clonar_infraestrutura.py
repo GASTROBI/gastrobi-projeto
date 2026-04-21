@@ -1,52 +1,61 @@
 # ==============================================================================
 # PROJETO: V2_GASTROBI
-# MÓDULO: ARQUITETO DE INFRAESTRUTURA (CLONAGEM)
-# DATA: 19/04/2026
-# VERSÃO: 1.0.0
-# OBJETIVO: Clonar tabelas do Dataset Mestre para os Datasets de Clientes
+# MÓDULO: ARQUITETO DE INFRAESTRUTURA (CLONAGEM AUTOMÁTICA)
+# DATA: 21/04/2026
+# VERSÃO: 2.1.0
+# OBJETIVO: Varre pastas de clientes e provisiona datasets automaticamente
 # ==============================================================================
 
+import os
 from google.cloud import bigquery
 
 project_id = "v2-gastrobi-lab"
 source_dataset_id = "dados_laboratorio"
+base_path = r'G:\Drives compartilhados\V2_GASTROBI\01_clientes'
 client = bigquery.Client(project=project_id)
-
-# Lista de datasets de clientes (poderíamos automatizar para ler todos, 
-# mas vamos começar com estes 5 que você já criou)
-datasets_clientes = [
-    "01_restaurante_sergio_ativo",
-    "02_pizzaria_verace_ativo",
-    "03_cafe_gourmet_ativo",
-    "04_churrascaria_premium_ativo",
-    "05_churrascaria_top_pausado"
-]
 
 def clonar_tabela(tabela_nome, destino_dataset, copiar_dados=False):
     source_table_ref = f"{project_id}.{source_dataset_id}.{tabela_nome}"
     dest_table_ref = f"{project_id}.{destino_dataset}.{tabela_nome}"
     
-    # 1. Busca a tabela mestre
+    # Busca o schema da tabela mestre
     table = client.get_table(source_table_ref)
     
-    # 2. Define a nova tabela (clonando o schema)
+    # Define a nova tabela no cliente
     new_table = bigquery.Table(dest_table_ref, schema=table.schema)
     
     try:
         client.create_table(new_table)
-        print(f"Estrutura da tabela {tabela_nome} criada em {destino_dataset}")
+        print(f"    -> Estrutura {tabela_nome} criada em {destino_dataset}")
         
-        # 3. Se precisar copiar os dados (dim_produtos)
+        # Copia dados apenas se for a dimensão
         if copiar_dados:
             job = client.copy_table(source_table_ref, dest_table_ref)
             job.result()
-            print(f"Dados da tabela {tabela_nome} copiados para {destino_dataset}")
+            print(f"    -> Dados da tabela {tabela_nome} copiados.")
             
     except Exception as e:
-        print(f"Tabela {tabela_nome} já existe em {destino_dataset} ou erro: {e}")
+        print(f"    -> Aviso: Tabela {tabela_nome} já existe ou erro: {e}")
 
-# EXECUÇÃO
-for dataset in datasets_clientes:
-    print(f"--- Provisionando infraestrutura para: {dataset} ---")
-    clonar_tabela("dim_produtos", dataset, copiar_dados=True)  # Copia schema + dados
-    clonar_tabela("fato_vendas", dataset, copiar_dados=False)  # Copia apenas schema (tabela vazia)
+# EXECUÇÃO AUTOMÁTICA
+print("--- Iniciando Varredura de Infraestrutura ---")
+
+for cliente_pasta in os.listdir(base_path):
+    # Processa apenas se for uma pasta
+    if os.path.isdir(os.path.join(base_path, cliente_pasta)):
+        dataset_id = cliente_pasta.lower().replace(" ", "_")
+        
+        # Verifica se o dataset já existe no BQ
+        try:
+            client.get_dataset(f"{project_id}.{dataset_id}")
+            print(f"Infraestrutura ok para: {dataset_id}")
+        except:
+            print(f"Provisionando novo cliente: {dataset_id}")
+            # Cria o dataset
+            dataset = bigquery.Dataset(f"{project_id}.{dataset_id}")
+            dataset.location = "US"
+            client.create_dataset(dataset)
+            
+            # Clona as tabelas
+            clonar_tabela("dim_produtos", dataset_id, copiar_dados=True)
+            clonar_tabela("fato_vendas", dataset_id, copiar_dados=False)

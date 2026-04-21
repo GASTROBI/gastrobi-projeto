@@ -1,0 +1,5 @@
+data_venda,id_produto,nome_produto,quantidade,valor_unitario,taxa_monofasica_aplicada,status_pagamento
+2026-04-20,101,Espetinho de Alcatra,2,12.50,0.15,aprovado
+2026-04-20,102,Cerveja 600ml,3,15.00,0.00,aprovado
+2026-04-21,105,Pão de Alho,4,8.00,0.05,aprovado
+2026-04-21,101,Espetinho de Alcatra,1,12.50,0.15,pendente
