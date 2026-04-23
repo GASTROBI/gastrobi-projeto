@@ -1,0 +1,3 @@
+dataset_id,coluna_original,coluna_destino
+04_churrascaria_premium_ativo,Produto,nome_produto_normalizado
+05_outra_churrascaria,Item,nome_produto_normalizado
