@@ -1,0 +1,105 @@
+﻿data_hora,script,cliente,status,mensagem
+2026-04-28 12:17:09,09_logs_monitoramento.py,restaurante_teste,SUCESSO,Sistema de logs criado e validado.
+2026-04-28 12:18:58,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-28 12:19:03,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-28 12:19:03,04_criar_tabelas_cliente.py,ERRO,C:\Users\profe\AppData\Local\Programs\Python\Python314\python.exe: can't open file 'G:\\Drives compartilhados\\V2_GASTROBI\\02_scripts\\04_criar_tabelas_cliente.py': [Errno 2] No such file or directory
+2026-04-28 12:19:04,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-28 12:19:04,06_tratar_dados.py,ERRO,C:\Users\profe\AppData\Local\Programs\Python\Python314\python.exe: can't open file 'G:\\Drives compartilhados\\V2_GASTROBI\\02_scripts\\06_tratar_dados.py': [Errno 2] No such file or directory
+2026-04-28 12:19:22,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-28 12:19:31,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.
+2026-04-28 12:32:16,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-28 12:32:21,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-28 12:32:21,04_clonar_tabela_padrao_cliente.py,ERRO,C:\Users\profe\AppData\Local\Programs\Python\Python314\python.exe: can't open file 'G:\\Drives compartilhados\\V2_GASTROBI\\02_scripts\\04_clonar_tabela_padrao_cliente.py': [Errno 2] No such file or directory
+2026-04-28 12:32:23,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-28 12:32:24,06_tratar_dados_planilha.py,SUCESSO,"VENDAS TRATADA
+        data                   produto  ...  forma_pagamento  canal_venda
+0 2026-04-02           Marmita Fitness  ...              PIX        iFood
+1 2026-04-03              Suco Natural  ...   Cartão Crédito       Balcão
+2 2026-04-03       Marmita Vegetariana  ...              PIX     WhatsApp
+3 2026-04-04  Marmita Executiva Frango  ...    Cartão Débito        iFood
+4 2026-04-04              Água Mineral  ...         Dinheiro       Balcão
+
+[5 rows x 6 columns]
+
+GASTOS TRATADA
+        data          categoria  valor
+0 2026-04-01  Compra de Insumos    320
+1 2026-04-01   Energia Elétrica    185
+2 2026-04-02         Embalagens     96
+3 2026-04-02         Transporte     75
+4 2026-04-03  Compra de Insumos    410
+
+PRODUTOS TRATADA
+                   produto  categoria  preco_venda
+0      Marmita Vegetariana  Refeições         18.0
+1  Marmita Premium Picanha  Refeições         28.0
+2         Marmita Low Carb  Refeições         19.0
+3        Refrigerante Lata    Bebidas          6.0
+4             Água Mineral    Bebidas          3.0
+
+Tratamento concluído com sucesso."
+2026-04-28 12:32:43,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-28 12:32:51,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.
+2026-04-28 12:33:32,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-28 12:33:37,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-28 12:33:42,04_clonar_tabelas_padrao_cliente.py,SUCESSO,"Tabela já existe: tb_vendas_fato
+Tabela já existe: tb_produtos_dim
+Tabela já existe: tb_kpis
+Processo finalizado."
+2026-04-28 12:33:43,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-28 12:33:45,06_tratar_dados_planilha.py,SUCESSO,"VENDAS TRATADA
+        data                   produto  ...  forma_pagamento  canal_venda
+0 2026-04-02           Marmita Fitness  ...              PIX        iFood
+1 2026-04-03              Suco Natural  ...   Cartão Crédito       Balcão
+2 2026-04-03       Marmita Vegetariana  ...              PIX     WhatsApp
+3 2026-04-04  Marmita Executiva Frango  ...    Cartão Débito        iFood
+4 2026-04-04              Água Mineral  ...         Dinheiro       Balcão
+
+[5 rows x 6 columns]
+
+GASTOS TRATADA
+        data          categoria  valor
+0 2026-04-01  Compra de Insumos    320
+1 2026-04-01   Energia Elétrica    185
+2 2026-04-02         Embalagens     96
+3 2026-04-02         Transporte     75
+4 2026-04-03  Compra de Insumos    410
+
+PRODUTOS TRATADA
+                   produto  categoria  preco_venda
+0      Marmita Vegetariana  Refeições         18.0
+1  Marmita Premium Picanha  Refeições         28.0
+2         Marmita Low Carb  Refeições         19.0
+3        Refrigerante Lata    Bebidas          6.0
+4             Água Mineral    Bebidas          3.0
+
+Tratamento concluído com sucesso."
+2026-04-28 12:34:01,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-28 12:34:10,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.

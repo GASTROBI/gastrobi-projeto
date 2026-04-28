@@ -1,6 +1,0 @@
-data_venda,nome_item,ncm_simulado,valor_total_bruto,qtd
-01/03/2026,Cafe Expresso Curto,09012100,7.50,10
-01/03/2026,Pao de Queijo Tradicional,19059090,6.00,8
-01/03/2026,Cappuccino Italiano,19011010,12.00,3
-01/03/2026,Agua com Gas Prata,22011000,4.50,5
-01/03/2026,Bolo de Cenoura Fatia,19059090,9.00,4
