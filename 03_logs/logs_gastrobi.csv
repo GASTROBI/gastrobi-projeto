@@ -103,3 +103,138 @@ Tratamento concluído com sucesso."
 Produtos importados com sucesso.
 Importação concluída com sucesso."
 2026-04-28 12:34:10,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.
+2026-04-29 09:27:40,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-29 09:27:46,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-29 09:27:50,04_clonar_tabelas_padrao_cliente.py,SUCESSO,"Tabela já existe: tb_vendas_fato
+Tabela já existe: tb_produtos_dim
+Tabela já existe: tb_kpis
+Processo finalizado."
+2026-04-29 09:27:51,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-29 09:27:52,06_tratar_dados_planilha.py,SUCESSO,"VENDAS TRATADA
+        data                   produto  ...  forma_pagamento  canal_venda
+0 2026-04-02           Marmita Fitness  ...              PIX        iFood
+1 2026-04-03              Suco Natural  ...   Cartão Crédito       Balcão
+2 2026-04-03       Marmita Vegetariana  ...              PIX     WhatsApp
+3 2026-04-04  Marmita Executiva Frango  ...    Cartão Débito        iFood
+4 2026-04-04              Água Mineral  ...         Dinheiro       Balcão
+
+[5 rows x 6 columns]
+
+GASTOS TRATADA
+        data          categoria  valor
+0 2026-04-01  Compra de Insumos    320
+1 2026-04-01   Energia Elétrica    185
+2 2026-04-02         Embalagens     96
+3 2026-04-02         Transporte     75
+4 2026-04-03  Compra de Insumos    410
+
+PRODUTOS TRATADA
+                   produto  categoria  preco_venda
+0      Marmita Vegetariana  Refeições         18.0
+1  Marmita Premium Picanha  Refeições         28.0
+2         Marmita Low Carb  Refeições         19.0
+3        Refrigerante Lata    Bebidas          6.0
+4             Água Mineral    Bebidas          3.0
+
+Tratamento concluído com sucesso."
+2026-04-29 09:28:07,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-29 09:28:15,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.
+2026-04-29 09:59:18,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-29 09:59:24,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-29 09:59:29,04_clonar_tabelas_padrao_cliente.py,SUCESSO,"Tabela já existe: tb_vendas_fato
+Tabela já existe: tb_produtos_dim
+Tabela já existe: tb_kpis
+Processo finalizado."
+2026-04-29 09:59:30,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-29 09:59:31,06_tratar_dados_planilha.py,SUCESSO,"VENDAS TRATADA
+         data                   produto  ...  forma_pagamento  canal_venda
+0  2026-04-02           Marmita Fitness  ...              PIX        iFood
+1  2026-04-03              Suco Natural  ...   Cartão Crédito       Balcão
+2  2026-04-03       Marmita Vegetariana  ...              PIX     WhatsApp
+3  2026-04-04  Marmita Executiva Frango  ...    Cartão Débito        iFood
+4  2026-04-04              Água Mineral  ...         Dinheiro       Balcão
+
+[5 rows x 6 columns]
+
+GASTOS TRATADA
+         data          categoria  valor
+0  2026-04-01  Compra de Insumos    320
+1  2026-04-01   Energia Elétrica    185
+2  2026-04-02         Embalagens     96
+3  2026-04-02         Transporte     75
+4  2026-04-03  Compra de Insumos    410
+
+PRODUTOS TRATADA
+                   produto  categoria  preco_venda
+0      Marmita Vegetariana  Refeições         18.0
+1  Marmita Premium Picanha  Refeições         28.0
+2         Marmita Low Carb  Refeições         19.0
+3        Refrigerante Lata    Bebidas          6.0
+4             Água Mineral    Bebidas          3.0
+
+Tratamento concluído com sucesso."
+2026-04-29 09:59:47,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-29 09:59:56,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.
+2026-04-29 10:04:16,02_detectar_cliente_ativo.py,SUCESSO,Cliente ativo encontrado: 01_restaurante_teste_ativo
+2026-04-29 10:04:20,03_criar_dataset_cliente.py,SUCESSO,Dataset já existe: restaurante_teste
+2026-04-29 10:04:25,04_clonar_tabelas_padrao_cliente.py,SUCESSO,"Tabela já existe: tb_vendas_fato
+Tabela já existe: tb_produtos_dim
+Tabela já existe: tb_kpis
+Processo finalizado."
+2026-04-29 10:04:26,05_ler_planilha_operacional.py,SUCESSO,"Arquivo encontrado:
+G:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx
+Abas encontradas: ['Instrucoes', 'Vendas', 'Gastos', 'Produtos', 'GERENCIAL_PRIVADO']
+Vendas carregada: (17, 6)
+Gastos carregada: (20, 3)
+Produtos carregada: (17, 3)
+GERENCIAL_PRIVADO carregada: (20, 8)
+Planilha lida com sucesso."
+2026-04-29 10:04:28,06_tratar_dados_planilha.py,SUCESSO,"VENDAS TRATADA
+         data                   produto  ...  forma_pagamento  canal_venda
+0  2026-04-02           Marmita Fitness  ...              PIX        iFood
+1  2026-04-03              Suco Natural  ...   Cartão Crédito       Balcão
+2  2026-04-03       Marmita Vegetariana  ...              PIX     WhatsApp
+3  2026-04-04  Marmita Executiva Frango  ...    Cartão Débito        iFood
+4  2026-04-04              Água Mineral  ...         Dinheiro       Balcão
+
+[5 rows x 6 columns]
+
+GASTOS TRATADA
+         data          categoria  valor
+0  2026-04-01  Compra de Insumos    320
+1  2026-04-01   Energia Elétrica    185
+2  2026-04-02         Embalagens     96
+3  2026-04-02         Transporte     75
+4  2026-04-03  Compra de Insumos    410
+
+PRODUTOS TRATADA
+                   produto  categoria  preco_venda
+0      Marmita Vegetariana  Refeições         18.0
+1  Marmita Premium Picanha  Refeições         28.0
+2         Marmita Low Carb  Refeições         19.0
+3        Refrigerante Lata    Bebidas          6.0
+4             Água Mineral    Bebidas          3.0
+
+Tratamento concluído com sucesso."
+2026-04-29 10:04:45,07_importar_bigquery.py,SUCESSO,"Vendas importadas com sucesso.
+Produtos importados com sucesso.
+Importação concluída com sucesso."
+2026-04-29 10:04:54,08_calcular_kpis.py,SUCESSO,KPIs criados com sucesso.

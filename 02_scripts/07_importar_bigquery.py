@@ -4,14 +4,13 @@
 # AUTOR: Sergio Paulo dos Santos
 # DATA: 2026-04-29
 # FINALIDADE:
-# Importar planilha operacional para BigQuery
-# usando CSV temporário (mais estável que pyarrow)
+# Corrigir erro pyarrow / bytestring ao importar vendas
+# para BigQuery convertendo tipos incompatíveis.
 # ==========================================================
 
 import os
 import re
 import pandas as pd
-from datetime import datetime
 from google.cloud import bigquery
 
 # ==========================================================
@@ -25,23 +24,20 @@ client = bigquery.Client(project=PROJECT_ID)
 # ==========================================================
 # CLIENTE ATIVO
 # ==========================================================
-def detectar_cliente_ativo():
+def detectar_cliente():
 
     for pasta in os.listdir(PASTA_CLIENTES):
-        caminho = os.path.join(PASTA_CLIENTES, pasta)
-
-        if os.path.isdir(caminho):
-            if pasta.lower().endswith("_ativo"):
-                return pasta
+        if pasta.endswith("_ativo"):
+            return pasta
 
     return None
 
 # ==========================================================
 # DATASET
 # ==========================================================
-def gerar_dataset(nome):
+def nome_dataset(cliente):
 
-    nome = nome.lower()
+    nome = cliente.lower()
     nome = re.sub(r"^\d+_", "", nome)
     nome = nome.replace("_ativo", "")
     nome = re.sub(r"[^a-z0-9_]", "", nome)
@@ -49,146 +45,132 @@ def gerar_dataset(nome):
     return nome
 
 # ==========================================================
-# LIMPAR COLUNAS
+# CARREGAR PICKLES
 # ==========================================================
-def limpar_colunas(df):
+def carregar():
 
-    df.columns = (
-        df.columns
-        .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
-    )
+    produtos = pd.read_pickle("produtos_tratado.pkl")
+    vendas = pd.read_pickle("vendas_tratado.pkl")
+
+    return produtos, vendas
+
+# ==========================================================
+# CONVERTER PRODUTOS
+# ==========================================================
+def preparar_produtos(df):
+
+    for col in df.columns:
+
+        if "data" in col.lower():
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.date
+
+        elif df[col].dtype == "object":
+            df[col] = df[col].astype(str)
+
+    numeros = [
+        "custo_unitario",
+        "preco_venda",
+        "valor_gorjeta_padrao"
+    ]
+
+    for col in numeros:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     return df
 
 # ==========================================================
-# IMPORTAR VIA CSV
+# CONVERTER VENDAS
 # ==========================================================
-def importar_csv(df, tabela):
+def preparar_vendas(df):
 
-    arquivo_temp = "temp_upload.csv"
+    # remove colunas técnicas do merge
+    remover = [
+        "produto_key",
+        "nome_produto_normalizado"
+    ]
 
-    df.to_csv(arquivo_temp, index=False, encoding="utf-8-sig")
+    for col in remover:
+        if col in df.columns:
+            df = df.drop(columns=col)
+
+    for col in df.columns:
+
+        if "data" in col.lower():
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.date
+
+        elif df[col].dtype == "object":
+            df[col] = df[col].astype(str)
+
+    numeros = [
+        "quantidade",
+        "valor_total",
+        "custo_unitario",
+        "custo_total",
+        "valor_gorjeta",
+        "preco_venda"
+    ]
+
+    for col in numeros:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    return df
+
+# ==========================================================
+# IMPORTAR
+# ==========================================================
+def subir(df, destino):
 
     job_config = bigquery.LoadJobConfig(
-        source_format=bigquery.SourceFormat.CSV,
-        skip_leading_rows=1,
-        autodetect=False,
         write_disposition="WRITE_TRUNCATE"
     )
 
-    with open(arquivo_temp, "rb") as arquivo:
-        job = client.load_table_from_file(
-            arquivo,
-            tabela,
-            job_config=job_config
-        )
+    job = client.load_table_from_dataframe(
+        df,
+        destino,
+        job_config=job_config
+    )
 
     job.result()
-
-    os.remove(arquivo_temp)
-
-# ==========================================================
-# VENDAS
-# ==========================================================
-def importar_vendas(arquivo, dataset):
-
-    df = pd.read_excel(arquivo, sheet_name="Vendas")
-    df = limpar_colunas(df)
-    df = df.dropna(how="all")
-
-    novo = pd.DataFrame()
-
-    novo["data"] = pd.to_datetime(df["data"]).dt.strftime("%Y-%m-%d")
-    novo["produto_original"] = df["produto"]
-    novo["nome_produto_normalizado"] = df["produto"]
-    novo["categoria"] = ""
-    novo["qtd"] = df["quantidade"]
-    novo["valor_unitario"] = df["valor_total"] / df["quantidade"]
-    novo["faturamento_bruto"] = df["valor_total"]
-    novo["desconto"] = 0
-    novo["valor_liquido"] = df["valor_total"]
-    novo["forma_pagamento"] = df["forma_pagamento"]
-    novo["canal_venda"] = df["canal_venda"]
-    novo["ncm"] = ""
-    novo["tributacao"] = ""
-    novo["custo_unitario"] = 0
-    novo["custo_total"] = 0
-    novo["valor_gorjeta_padrao"] = 0
-    novo["arquivo_origem"] = "Planilha_Operacional_Restaurante_Teste.xlsx"
-    novo["data_importacao"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    novo["cliente"] = dataset
-
-    tabela = f"{PROJECT_ID}.{dataset}.tb_vendas_fato"
-
-    importar_csv(novo, tabela)
-
-    print("Vendas importadas com sucesso.")
-
-# ==========================================================
-# PRODUTOS
-# ==========================================================
-def importar_produtos(arquivo, dataset):
-
-    df = pd.read_excel(arquivo, sheet_name="Produtos")
-    df = limpar_colunas(df)
-    df = df.dropna(how="all")
-
-    novo = pd.DataFrame()
-
-    novo["nome_produto_normalizado"] = df["produto"]
-    novo["produto_original"] = df["produto"]
-    novo["categoria"] = df["categoria"]
-    novo["subcategoria"] = ""
-    novo["ncm"] = ""
-    novo["tributacao"] = ""
-    novo["monofasico"] = "false"
-    novo["custo_unitario"] = 0
-    novo["preco_venda"] = df["preco_venda"]
-    novo["valor_gorjeta_padrao"] = 0
-    novo["ativo"] = "true"
-    novo["data_atualizacao"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    tabela = f"{PROJECT_ID}.{dataset}.tb_produtos_dim"
-
-    importar_csv(novo, tabela)
-
-    print("Produtos importados com sucesso.")
-
-# ==========================================================
-# EXECUTAR
-# ==========================================================
-def executar():
-
-    try:
-
-        cliente = detectar_cliente_ativo()
-
-        if not cliente:
-            print("Nenhum cliente ativo.")
-            return
-
-        dataset = gerar_dataset(cliente)
-
-        pasta_cliente = os.path.join(PASTA_CLIENTES, cliente)
-
-        arquivo = os.path.join(
-            pasta_cliente,
-            "Planilha_Operacional_Restaurante_Teste.xlsx"
-        )
-
-        importar_vendas(arquivo, dataset)
-        importar_produtos(arquivo, dataset)
-
-        print("Importação concluída com sucesso.")
-
-    except Exception as erro:
-        print("Erro geral:", erro)
 
 # ==========================================================
 # MAIN
 # ==========================================================
-if __name__ == "__main__":
+def main():
 
-    executar()
+    try:
+
+        cliente = detectar_cliente()
+
+        if not cliente:
+            print("Cliente ativo não encontrado.")
+            return
+
+        dataset = nome_dataset(cliente)
+
+        produtos, vendas = carregar()
+
+        produtos = preparar_produtos(produtos)
+        vendas = preparar_vendas(vendas)
+
+        tabela_produtos = f"{PROJECT_ID}.{dataset}.tb_produto_dim"
+        tabela_vendas = f"{PROJECT_ID}.{dataset}.tb_vendas_fato"
+
+        subir(produtos, tabela_produtos)
+        print("Produtos importados com sucesso.")
+
+        subir(vendas, tabela_vendas)
+        print("Vendas importadas com sucesso.")
+
+        print("Importação concluída com sucesso.")
+
+    except Exception as erro:
+
+        print("Erro geral:", erro)
+
+# ==========================================================
+# EXECUTAR
+# ==========================================================
+if __name__ == "__main__":
+    main()

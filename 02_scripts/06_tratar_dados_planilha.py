@@ -4,170 +4,195 @@
 # AUTOR: Sergio Paulo dos Santos
 # DATA: 2026-04-29
 # FINALIDADE:
-# Ler a planilha operacional do cliente ativo e tratar os dados
-# para futura importação ao BigQuery.
-#
-# TRATAMENTOS:
-# - remover linhas vazias
-# - padronizar nomes colunas
-# - converter datas
-# - converter números
-# - limpar textos
+# Corrigir leitura da aba Produtos considerando nomes
+# reais das colunas do Excel e enriquecer dados.
 # ==========================================================
 
 import os
 import pandas as pd
 
 # ==========================================================
-# CAMINHO CLIENTES
+# CAMINHO BASE
 # ==========================================================
-PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
+PASTA_BASE = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
 
 # ==========================================================
-# FUNÇÃO CLIENTE ATIVO
+# LOCALIZAR CLIENTE ATIVO
 # ==========================================================
-def detectar_cliente_ativo():
+def localizar_cliente():
 
-    pastas = os.listdir(PASTA_CLIENTES)
-
-    for pasta in pastas:
-
-        caminho = os.path.join(PASTA_CLIENTES, pasta)
-
-        if os.path.isdir(caminho):
-
-            if pasta.lower().endswith("_ativo"):
-                return pasta
+    for pasta in os.listdir(PASTA_BASE):
+        if pasta.endswith("_ativo"):
+            return os.path.join(PASTA_BASE, pasta)
 
     return None
 
+# ==========================================================
+# LOCALIZAR PLANILHA
+# ==========================================================
+def localizar_planilha(pasta_cliente):
+
+    for arq in os.listdir(pasta_cliente):
+        if arq.lower().endswith(".xlsx"):
+            return os.path.join(pasta_cliente, arq)
+
+    return None
 
 # ==========================================================
-# FUNÇÃO LIMPAR NOME COLUNAS
+# NORMALIZAR TEXTO
 # ==========================================================
-def limpar_colunas(df):
+def normalizar(txt):
 
-    df.columns = (
-        df.columns
+    if pd.isna(txt):
+        return ""
+
+    return str(txt).strip().upper()
+
+# ==========================================================
+# PRODUTOS
+# ==========================================================
+def tratar_produtos(df):
+
+    df.columns = df.columns.str.strip()
+
+    # renomeia qualquer variação possível
+    mapa = {
+        "Produto": "produto_original",
+        "produto": "produto_original",
+        "Categoria": "categoria",
+        "categoria": "categoria",
+        "Preço Venda": "preco_venda",
+        "Preço_Venda": "preco_venda",
+        "Preco Venda": "preco_venda",
+        "Preco_Venda": "preco_venda",
+        "preco_venda": "preco_venda"
+    }
+
+    df = df.rename(columns=mapa)
+
+    # garante coluna preço
+    df["preco_venda"] = (
+        df["preco_venda"]
+        .astype(str)
+        .str.replace("R$", "", regex=False)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
         .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
-        .str.replace("ç", "c")
-        .str.replace("ã", "a")
-        .str.replace("á", "a")
-        .str.replace("é", "e")
     )
 
+    df["preco_venda"] = pd.to_numeric(
+        df["preco_venda"],
+        errors="coerce"
+    ).fillna(0)
+
+    df["produto_original"] = df["produto_original"].astype(str).str.strip()
+    df["nome_produto_normalizado"] = df["produto_original"].apply(normalizar)
+
+    df["categoria"] = df["categoria"].fillna("GERAL")
+    df["subcategoria"] = "PADRAO"
+    df["ncm"] = "00000000"
+    df["tributacao"] = "NORMAL"
+    df["monofasico"] = "NAO"
+    df["custo_unitario"] = (df["preco_venda"] * 0.35).round(2)
+    df["valor_gorjeta_padrao"] = 0
+    df["ativo"] = "SIM"
+    df["data_atualizacao"] = pd.Timestamp.today().date()
+
+    return df[
+        [
+            "nome_produto_normalizado",
+            "produto_original",
+            "categoria",
+            "subcategoria",
+            "ncm",
+            "tributacao",
+            "monofasico",
+            "custo_unitario",
+            "preco_venda",
+            "valor_gorjeta_padrao",
+            "ativo",
+            "data_atualizacao"
+        ]
+    ]
+
+# ==========================================================
+# VENDAS
+# ==========================================================
+def tratar_vendas(df_vendas, df_produtos):
+
+    df_vendas.columns = df_vendas.columns.str.strip()
+
+    mapa = {
+        "Data": "data",
+        "Produto": "produto",
+        "Quantidade": "quantidade",
+        "Valor Total": "valor_total",
+        "Valor_Total": "valor_total",
+        "Forma Pagamento": "forma_pagamento",
+        "Forma_Pagamento": "forma_pagamento",
+        "Canal Venda": "canal_venda",
+        "Canal_Venda": "canal_venda"
+    }
+
+    df_vendas = df_vendas.rename(columns=mapa)
+
+    df_vendas["produto"] = df_vendas["produto"].astype(str).str.strip()
+    df_vendas["produto_key"] = df_vendas["produto"].apply(normalizar)
+
+    df_vendas["quantidade"] = pd.to_numeric(
+        df_vendas["quantidade"], errors="coerce"
+    ).fillna(0)
+
+    df_vendas["valor_total"] = pd.to_numeric(
+        df_vendas["valor_total"], errors="coerce"
+    ).fillna(0)
+
+    df = pd.merge(
+        df_vendas,
+        df_produtos,
+        left_on="produto_key",
+        right_on="nome_produto_normalizado",
+        how="left"
+    )
+
+    df["custo_total"] = (
+        df["quantidade"] * df["custo_unitario"]
+    ).round(2)
+
+    df["valor_gorjeta"] = df["valor_gorjeta_padrao"].fillna(0)
+
     return df
 
+# ==========================================================
+# MAIN
+# ==========================================================
+def main():
+
+    pasta = localizar_cliente()
+
+    if not pasta:
+        print("Cliente ativo não encontrado.")
+        return
+
+    arquivo = localizar_planilha(pasta)
+
+    if not arquivo:
+        print("Planilha não encontrada.")
+        return
+
+    abas = pd.read_excel(arquivo, sheet_name=None)
+
+    produtos = tratar_produtos(abas["Produtos"])
+    vendas = tratar_vendas(abas["Vendas"], produtos)
+
+    produtos.to_pickle("produtos_tratado.pkl")
+    vendas.to_pickle("vendas_tratado.pkl")
+
+    print("Produtos tratados com sucesso.")
+    print("Vendas tratadas com sucesso.")
 
 # ==========================================================
-# FUNÇÃO TRATAR DATAFRAME
-# ==========================================================
-def tratar_df(df):
-
-    # remove linhas totalmente vazias
-    df = df.dropna(how="all")
-
-    # limpa colunas
-    df = limpar_colunas(df)
-
-    # limpa textos
-    for coluna in df.columns:
-
-        if df[coluna].dtype == "object":
-
-            df[coluna] = (
-                df[coluna]
-                .astype(str)
-                .str.strip()
-            )
-
-    return df
-
-
-# ==========================================================
-# FUNÇÃO PRINCIPAL
-# ==========================================================
-def tratar_planilha():
-
-    try:
-
-        cliente = detectar_cliente_ativo()
-
-        if not cliente:
-            print("Nenhum cliente ativo encontrado.")
-            return
-
-        pasta_cliente = os.path.join(PASTA_CLIENTES, cliente)
-
-        arquivo = "Planilha_Operacional_Restaurante_Teste.xlsx"
-
-        caminho_arquivo = os.path.join(pasta_cliente, arquivo)
-
-        excel = pd.ExcelFile(caminho_arquivo)
-
-        abas = excel.sheet_names
-
-        abas_dict = {}
-
-        for aba in abas:
-            abas_dict[aba.lower()] = aba
-
-        # --------------------------------------------------
-        # VENDAS
-        # --------------------------------------------------
-        if "vendas" in abas_dict:
-
-            df_vendas = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["vendas"]
-            )
-
-            df_vendas = tratar_df(df_vendas)
-
-            print("\nVENDAS TRATADA")
-            print(df_vendas.head())
-
-        # --------------------------------------------------
-        # GASTOS
-        # --------------------------------------------------
-        if "gastos" in abas_dict:
-
-            df_gastos = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["gastos"]
-            )
-
-            df_gastos = tratar_df(df_gastos)
-
-            print("\nGASTOS TRATADA")
-            print(df_gastos.head())
-
-        # --------------------------------------------------
-        # PRODUTOS
-        # --------------------------------------------------
-        if "produtos" in abas_dict:
-
-            df_produtos = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["produtos"]
-            )
-
-            df_produtos = tratar_df(df_produtos)
-
-            print("\nPRODUTOS TRATADA")
-            print(df_produtos.head())
-
-        print("\nTratamento concluído com sucesso.")
-
-    except Exception as erro:
-        print("Erro no tratamento:", erro)
-
-
-# ==========================================================
-# EXECUÇÃO
+# EXECUTAR
 # ==========================================================
 if __name__ == "__main__":
-
-    tratar_planilha()
+    main()

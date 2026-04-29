@@ -1,149 +1,175 @@
+
+
 # ==========================================================
 # PROJETO: GASTROBI V2
-# ARQUIVO: 10_main.py
+# ARQUIVO: 06_tratar_dados_planilha.py
 # AUTOR: Sergio Paulo dos Santos
 # DATA: 2026-04-29
 # FINALIDADE:
-# Script principal de automação do GastroBI
-# Executa toda rotina operacional em sequência
+# Ler a planilha operacional do cliente ativo e tratar os dados
+# para futura importação ao BigQuery.
+#
+# TRATAMENTOS:
+# - remover linhas vazias
+# - padronizar nomes colunas
+# - converter datas
+# - converter números
+# - limpar textos
 # ==========================================================
 
-import subprocess
 import os
-from datetime import datetime
-import csv
+import pandas as pd
 
 # ==========================================================
-# CONFIGURAÇÕES
+# CAMINHO CLIENTES
 # ==========================================================
-PASTA_SCRIPTS = r"G:\Drives compartilhados\V2_GASTROBI\02_scripts"
-PYTHON_EXE = r"C:\Users\profe\AppData\Local\Programs\Python\Python314\python.exe"
-
-PASTA_LOGS = r"G:\Drives compartilhados\V2_GASTROBI\03_logs"
-ARQUIVO_LOG = "logs_gastrobi.csv"
+PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
 
 # ==========================================================
-# ROTINA OFICIAL DOS SCRIPTS
+# FUNÇÃO CLIENTE ATIVO
 # ==========================================================
-ROTINA = [
-    "02_detectar_cliente_ativo.py",
-    "03_criar_dataset_cliente.py",
-    "04_clonar_tabelas_padrao_cliente.py",
-    "05_ler_planilha_operacional.py",
-    "06_tratar_dados_planilha.py",
-    "07_importar_bigquery.py",
-    "08_calcular_kpis.py"
-]
+def detectar_cliente_ativo():
 
-# ==========================================================
-# PREPARAR LOGS
-# ==========================================================
-def preparar_logs():
+    pastas = os.listdir(PASTA_CLIENTES)
 
-    if not os.path.exists(PASTA_LOGS):
-        os.makedirs(PASTA_LOGS)
+    for pasta in pastas:
 
-def caminho_log():
+        caminho = os.path.join(PASTA_CLIENTES, pasta)
 
-    return os.path.join(PASTA_LOGS, ARQUIVO_LOG)
+        if os.path.isdir(caminho):
 
-def criar_log():
+            if pasta.lower().endswith("_ativo"):
+                return pasta
 
-    arquivo = caminho_log()
+    return None
 
-    if not os.path.exists(arquivo):
-
-        with open(arquivo, "w", newline="", encoding="utf-8-sig") as f:
-
-            writer = csv.writer(f)
-
-            writer.writerow([
-                "data_hora",
-                "script",
-                "status",
-                "mensagem"
-            ])
-
-def registrar(script, status, mensagem):
-
-    preparar_logs()
-    criar_log()
-
-    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    with open(caminho_log(), "a", newline="", encoding="utf-8-sig") as f:
-
-        writer = csv.writer(f)
-
-        writer.writerow([
-            agora,
-            script,
-            status,
-            mensagem
-        ])
 
 # ==========================================================
-# EXECUTAR SCRIPT INDIVIDUAL
+# FUNÇÃO LIMPAR NOME COLUNAS
 # ==========================================================
-def rodar_script(nome_script):
+def limpar_colunas(df):
 
-    caminho = os.path.join(PASTA_SCRIPTS, nome_script)
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+        .str.replace("ç", "c")
+        .str.replace("ã", "a")
+        .str.replace("á", "a")
+        .str.replace("é", "e")
+    )
+
+    return df
+
+
+# ==========================================================
+# FUNÇÃO TRATAR DATAFRAME
+# ==========================================================
+def tratar_df(df):
+
+    # remove linhas totalmente vazias
+    df = df.dropna(how="all")
+
+    # limpa colunas
+    df = limpar_colunas(df)
+
+    # limpa textos
+    for coluna in df.columns:
+
+        if df[coluna].dtype == "object":
+
+            df[coluna] = (
+                df[coluna]
+                .astype(str)
+                .str.strip()
+            )
+
+    return df
+
+
+# ==========================================================
+# FUNÇÃO PRINCIPAL
+# ==========================================================
+def tratar_planilha():
 
     try:
 
-        resultado = subprocess.run(
-            [PYTHON_EXE, caminho],
-            capture_output=True,
-            text=True
-        )
+        cliente = detectar_cliente_ativo()
 
-        if resultado.returncode == 0:
+        if not cliente:
+            print("Nenhum cliente ativo encontrado.")
+            return
 
-            registrar(
-                nome_script,
-                "SUCESSO",
-                resultado.stdout.strip()
+        pasta_cliente = os.path.join(PASTA_CLIENTES, cliente)
+
+        arquivo = "Planilha_Operacional_Restaurante_Teste.xlsx"
+
+        caminho_arquivo = os.path.join(pasta_cliente, arquivo)
+
+        excel = pd.ExcelFile(caminho_arquivo)
+
+        abas = excel.sheet_names
+
+        abas_dict = {}
+
+        for aba in abas:
+            abas_dict[aba.lower()] = aba
+
+        # --------------------------------------------------
+        # VENDAS
+        # --------------------------------------------------
+        if "vendas" in abas_dict:
+
+            df_vendas = pd.read_excel(
+                caminho_arquivo,
+                sheet_name=abas_dict["vendas"]
             )
 
-            print(nome_script, "OK")
+            df_vendas = tratar_df(df_vendas)
 
-        else:
+            print("\nVENDAS TRATADA")
+            print(df_vendas.head())
 
-            registrar(
-                nome_script,
-                "ERRO",
-                resultado.stderr.strip()
+        # --------------------------------------------------
+        # GASTOS
+        # --------------------------------------------------
+        if "gastos" in abas_dict:
+
+            df_gastos = pd.read_excel(
+                caminho_arquivo,
+                sheet_name=abas_dict["gastos"]
             )
 
-            print(nome_script, "ERRO")
+            df_gastos = tratar_df(df_gastos)
+
+            print("\nGASTOS TRATADA")
+            print(df_gastos.head())
+
+        # --------------------------------------------------
+        # PRODUTOS
+        # --------------------------------------------------
+        if "produtos" in abas_dict:
+
+            df_produtos = pd.read_excel(
+                caminho_arquivo,
+                sheet_name=abas_dict["produtos"]
+            )
+
+            df_produtos = tratar_df(df_produtos)
+
+            print("\nPRODUTOS TRATADA")
+            print(df_produtos.head())
+
+        print("\nTratamento concluído com sucesso.")
 
     except Exception as erro:
+        print("Erro no tratamento:", erro)
 
-        registrar(
-            nome_script,
-            "ERRO",
-            str(erro)
-        )
-
-        print(nome_script, "FALHOU")
 
 # ==========================================================
-# EXECUTAR ROTINA COMPLETA
-# ==========================================================
-def executar_rotina():
-
-    print("INICIANDO ROTINA GASTROBI")
-    print("-" * 40)
-
-    for script in ROTINA:
-        rodar_script(script)
-
-    print("-" * 40)
-    print("ROTINA FINALIZADA")
-
-# ==========================================================
-# MAIN
+# EXECUÇÃO
 # ==========================================================
 if __name__ == "__main__":
 
-    executar_rotina()
+    tratar_planilha()
