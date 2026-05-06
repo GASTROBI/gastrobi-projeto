@@ -1,175 +1,56 @@
+# ==============================================================================
+# PROJETO: GastroBI - Inteligência de Negócios para Food Service
+# CONSULTOR: Sérgio Paulo dos Santos
+# DATA: 06/05/2026
+# OBJETIVO: Script mestre BLINDADO. Executa a sequência uma única vez.
+#           Proibida a reinicialização automática para evitar loops.
+# ==============================================================================
 
-
-# ==========================================================
-# PROJETO: GASTROBI V2
-# ARQUIVO: 06_tratar_dados_planilha.py
-# AUTOR: Sergio Paulo dos Santos
-# DATA: 2026-04-29
-# FINALIDADE:
-# Ler a planilha operacional do cliente ativo e tratar os dados
-# para futura importação ao BigQuery.
-#
-# TRATAMENTOS:
-# - remover linhas vazias
-# - padronizar nomes colunas
-# - converter datas
-# - converter números
-# - limpar textos
-# ==========================================================
-
+import subprocess
 import os
-import pandas as pd
+import sys
 
-# ==========================================================
-# CAMINHO CLIENTES
-# ==========================================================
-PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
-
-# ==========================================================
-# FUNÇÃO CLIENTE ATIVO
-# ==========================================================
-def detectar_cliente_ativo():
-
-    pastas = os.listdir(PASTA_CLIENTES)
-
-    for pasta in pastas:
-
-        caminho = os.path.join(PASTA_CLIENTES, pasta)
-
-        if os.path.isdir(caminho):
-
-            if pasta.lower().endswith("_ativo"):
-                return pasta
-
-    return None
-
-
-# ==========================================================
-# FUNÇÃO LIMPAR NOME COLUNAS
-# ==========================================================
-def limpar_colunas(df):
-
-    df.columns = (
-        df.columns
-        .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
-        .str.replace("ç", "c")
-        .str.replace("ã", "a")
-        .str.replace("á", "a")
-        .str.replace("é", "e")
-    )
-
-    return df
-
-
-# ==========================================================
-# FUNÇÃO TRATAR DATAFRAME
-# ==========================================================
-def tratar_df(df):
-
-    # remove linhas totalmente vazias
-    df = df.dropna(how="all")
-
-    # limpa colunas
-    df = limpar_colunas(df)
-
-    # limpa textos
-    for coluna in df.columns:
-
-        if df[coluna].dtype == "object":
-
-            df[coluna] = (
-                df[coluna]
-                .astype(str)
-                .str.strip()
-            )
-
-    return df
-
-
-# ==========================================================
-# FUNÇÃO PRINCIPAL
-# ==========================================================
-def tratar_planilha():
-
+def executar_script(nome_script):
+    caminho_script = os.path.join("02_scripts", nome_script)
+    print(f"\n>>> EXECUTANDO: {nome_script}")
+    
     try:
+        # O shell=False impede que o script chame novos processos indesejados
+        resultado = subprocess.run([sys.executable, caminho_script], check=True)
+        return True
+    except Exception as e:
+        print(f"!!! PARADA DE SEGURANÇA no script {nome_script}: {e}")
+        return False
 
-        cliente = detectar_cliente_ativo()
+def iniciar_fluxo_unico():
+    scripts = [
+        "00_auditoria_inicial.py",
+        "01_criar_tabelas_bigquery.py",
+        "02_detectar_cliente_ativo.py",
+        "02_gerar_amostra.py",
+        "03_criar_dataset_cliente.py",
+        "04_clonar_tabelas_padrao_cliente.py",
+        "04_limpeza_cruzamento.py",
+        "05_ler_planilha_operacional.py",
+        "06_tratar_dados_planilha.py",
+        "07_importar_bigquery.py",
+        "08_calcular_kpis.py",
+        "09_logs_monitoramento.py",
+        "11_importar_gastos.py",
+        "12_importar_monofasicos.py"
+    ]
 
-        if not cliente:
-            print("Nenhum cliente ativo encontrado.")
-            return
+    print("--- INICIANDO PROCESSAMENTO ÚNICO GASTROBI V2 ---")
+    
+    for script in scripts:
+        sucesso = executar_script(script)
+        if not sucesso:
+            print("FLUXO INTERROMPIDO PARA EVITAR LOOP OU ERRO.")
+            break
 
-        pasta_cliente = os.path.join(PASTA_CLIENTES, cliente)
+    print("\n======================================================")
+    print("PROCESSO FINALIZADO COM SEGURANÇA.")
+    print("======================================================")
 
-        arquivo = "Planilha_Operacional_Restaurante_Teste.xlsx"
-
-        caminho_arquivo = os.path.join(pasta_cliente, arquivo)
-
-        excel = pd.ExcelFile(caminho_arquivo)
-
-        abas = excel.sheet_names
-
-        abas_dict = {}
-
-        for aba in abas:
-            abas_dict[aba.lower()] = aba
-
-        # --------------------------------------------------
-        # VENDAS
-        # --------------------------------------------------
-        if "vendas" in abas_dict:
-
-            df_vendas = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["vendas"]
-            )
-
-            df_vendas = tratar_df(df_vendas)
-
-            print("\nVENDAS TRATADA")
-            print(df_vendas.head())
-
-        # --------------------------------------------------
-        # GASTOS
-        # --------------------------------------------------
-        if "gastos" in abas_dict:
-
-            df_gastos = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["gastos"]
-            )
-
-            df_gastos = tratar_df(df_gastos)
-
-            print("\nGASTOS TRATADA")
-            print(df_gastos.head())
-
-        # --------------------------------------------------
-        # PRODUTOS
-        # --------------------------------------------------
-        if "produtos" in abas_dict:
-
-            df_produtos = pd.read_excel(
-                caminho_arquivo,
-                sheet_name=abas_dict["produtos"]
-            )
-
-            df_produtos = tratar_df(df_produtos)
-
-            print("\nPRODUTOS TRATADA")
-            print(df_produtos.head())
-
-        print("\nTratamento concluído com sucesso.")
-
-    except Exception as erro:
-        print("Erro no tratamento:", erro)
-
-
-# ==========================================================
-# EXECUÇÃO
-# ==========================================================
 if __name__ == "__main__":
-
-    tratar_planilha()
+    iniciar_fluxo_unico()
