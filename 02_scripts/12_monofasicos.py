@@ -1,9 +1,9 @@
 # ==============================================================================
 # PROJETO: GastroBI - Inteligência de Negócios para Food Service
-# ARQUIVO: 08_calcular_kpis.py
+# ARQUIVO: 12_monofasicos.py
 # AUTOR: Sergio Paulo dos Santos
 # DATA: 07/05/2026
-# OBJETIVO: Gerar tabela de KPIs no BigQuery para todos os clientes.
+# OBJETIVO: Gerar análise de impostos monofásicos para todos os clientes ativos.
 # ==============================================================================
 
 from google.cloud import bigquery
@@ -22,15 +22,19 @@ def executar():
     for pasta in pastas:
         dataset_id = gerar_nome_dataset(pasta)
         sql = f"""
-        CREATE OR REPLACE TABLE `{client.project}.{dataset_id}.tb_kpis` AS
-        SELECT data, SUM(valor_total) as faturamento, SUM(quantidade) as qtd_total
-        FROM `{client.project}.{dataset_id}.tb_vendas_fato` GROUP BY 1
+        CREATE OR REPLACE TABLE `{client.project}.{dataset_id}.tb_analise_monofasicos` AS
+        SELECT 
+            item, 
+            SUM(quantidade) as qtd_total, 
+            SUM(valor_total) as faturamento_bruto
+        FROM `{client.project}.{dataset_id}.tb_vendas_fato`
+        GROUP BY 1
         """
         try:
             client.query(sql).result()
-            print(f">>> [OK] KPIs gerados: {dataset_id}")
+            print(f">>> [OK] Monofásicos gerados: {dataset_id}")
         except Exception as e:
-            print(f"Erro KPIs {dataset_id}: {e}")
+            print(f"Erro Script 12 em {dataset_id}: {e}")
 
 if __name__ == "__main__":
     executar()
