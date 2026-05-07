@@ -1,69 +1,76 @@
-# ==============================================================================
-# PROJETO: GastroBI - Inteligência de Negócios para Food Service
-# CONSULTOR: Sérgio Paulo dos Santos
-# DATA: 05/05/2026
-# OBJETIVO: Criar automaticamente o dataset 'dados_cliente' (se não existir) e
-#           importar a tabela 'tb_ncm_monofasicos' da aba 'Impostos_monofasicos'.
-#           Garante que a fundação do BigQuery esteja pronta sem intervenção manual.
-# ==============================================================================
+# ==========================================================
+# PROJETO: GASTROBI V2
+# ARQUIVO: 12_monofasicos.py
+# AUTOR: Sergio Paulo dos Santos
+# DATA: 07/05/2026
+# FINALIDADE: Identificar produtos com PIS/COFINS Monofásico.
+#             - Ajustado para colunas: 'produto'/'item' e 'ncm'
+# ==========================================================
 
 import pandas as pd
 from google.cloud import bigquery
-from google.cloud.exceptions import NotFound
 import os
+import re
 
-# Configurações de acesso
-DATASET_ID = "dados_cliente"
-TABELA_NCM = "tb_ncm_monofasicos"
-ABA_CORRETA = "Impostos_monofasicos" 
+# CONFIGURAÇÃO
+PROJECT_ID = "v2-gastrobi-lab"
+TABELA_RESULTADO = "tb_analise_monofasicos"
 
-def importar_ncm_monofasicos():
-    client = bigquery.Client()
+client = bigquery.Client(project=PROJECT_ID)
 
-    # Caminho confirmado para a planilha operacional
-    caminho_final = r"01_clientes\01_restaurante_teste_ativo\Planilha_Operacional_Restaurante_Teste.xlsx"
+def gerar_nome_dataset(nome_pasta):
+    nome = nome_pasta.lower()
+    nome = re.sub(r"^\d+_", "", nome)
+    nome = nome.replace("_ativo", "").replace("cliente", "").strip("_")
+    nome = re.sub(r"[^a-z0-9_]", "", nome)
+    return nome
 
-    print(f"--- Iniciando Importação de NCMs (Consultor: Sérgio) ---")
-    
+def analisar_monofasicos_cliente(dataset_alvo):
     try:
-        # 1. VALIDAÇÃO/CRIAÇÃO DO DATASET (Etapa 3 do Guia Mestre)
-        dataset_ref = client.dataset(DATASET_ID)
-        try:
-            client.get_dataset(dataset_ref)
-            print(f"Dataset '{DATASET_ID}' já existe.")
-        except NotFound:
-            print(f"Dataset '{DATASET_ID}' não encontrado. Criando agora...")
-            dataset = bigquery.Dataset(dataset_ref)
-            dataset.location = "US"  # Ou a região que você preferir
-            client.create_dataset(dataset)
-            print(f"Dataset '{DATASET_ID}' criado com sucesso.")
+        # Pega as colunas reais da tabela
+        table_ref = client.get_table(f"{PROJECT_ID}.{dataset_alvo}.tb_vendas_fato")
+        colunas_reais = [field.name for field in table_ref.schema]
 
-        # 2. LEITURA DA ABA CORRETA
-        print(f"Lendo dados da aba: {ABA_CORRETA}...")
-        df_ncm = pd.read_excel(caminho_final, sheet_name=ABA_CORRETA, dtype={'ncm': str}, engine='openpyxl')
+        # Lógica Flexível para nomes de colunas
+        col_ncm = next((c for c in colunas_reais if c.lower() in ['ncm', 'ncm_simulado']), None)
+        col_item = next((c for c in colunas_reais if c.lower() in ['item', 'produto', 'nome_item']), None)
+        col_valor = next((c for c in colunas_reais if 'valor_total' in c.lower()), 'valor_total')
+        col_qtd = next((c for c in colunas_reais if 'quant' in c.lower() or 'qtd' in c.lower()), 'quantidade')
 
-        # 3. LIMPEZA DOS DADOS
-        # Remove linhas totalmente vazias ou sem o código NCM
-        df_ncm = df_ncm.dropna(subset=['ncm'])
+        if not col_ncm or not col_item:
+            print(f"--- Erro: Colunas essenciais não identificadas em {dataset_alvo} ---")
+            return
 
-        # 4. ENVIO PARA O BIGQUERY
-        table_ref = dataset_ref.table(TABELA_NCM)
+        # SQL FINAL com nomes dinâmicos
+        sql = f"""
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{dataset_alvo}.{TABELA_RESULTADO}` AS
+        SELECT 
+            {col_item} as item,
+            CAST({col_ncm} AS STRING) as ncm,
+            SUM({col_qtd}) as qtd_total,
+            SUM({col_valor}) as faturamento_bruto,
+            ROUND(SUM({col_valor}) * 0.0925, 2) as potencial_recuperacao_estimado
+        FROM `{PROJECT_ID}.{dataset_alvo}.tb_vendas_fato`
+        WHERE 
+            SUBSTR(CAST({col_ncm} AS STRING), 1, 4) IN ('2202', '2203', '2106')
+        GROUP BY 1, 2
+        ORDER BY faturamento_bruto DESC
+        """
         
-        # WRITE_TRUNCATE: Atualiza apenas esta tabela específica.
-        job_config = bigquery.LoadJobConfig(
-            write_disposition="WRITE_TRUNCATE",
-            autodetect=True
-        )
-
-        print(f"Enviando {len(df_ncm)} linhas para {DATASET_ID}.{TABELA_NCM}...")
-        job = client.load_table_from_dataframe(df_ncm, table_ref, job_config=job_config)
-        job.result()
-
-        print(f"SUCESSO: Dataset e Tabela validados e atualizados.")
-        print(f"------------------------------------------------------------------")
+        query_job = client.query(sql)
+        query_job.result()
+        
+        print(f">>> Sucesso: Análise de Monofásicos gerada para {dataset_alvo}!")
 
     except Exception as e:
-        print(f"ERRO CRÍTICO NA IMPORTAÇÃO: {e}")
+        print(f"--- Aviso: Erro em {dataset_alvo}: {e} ---")
+
+def detectar_e_processar():
+    PASTA_BASE = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
+    for pasta in os.listdir(PASTA_BASE):
+        if pasta.lower().endswith("_ativo"):
+            dataset = gerar_nome_dataset(pasta)
+            analisar_monofasicos_cliente(dataset)
 
 if __name__ == "__main__":
-    importar_ncm_monofasicos()
+    detectar_e_processar()
