@@ -1,6 +1,26 @@
+# ==========================================================
+# PROTOCOLO DE SEGURANÇA GASTROBI V2
+# ARQUIVO: .gitignore
+# AUTOR: Sergio Paulo dos Santos
+# FINALIDADE: Proteger credenciais e dados de clientes
+# ==========================================================
+
+# --- SEGURANÇA: CREDENCIAIS ---
+# Mesmo que o Workspace restrinja, mantemos a proteção preventiva
+*.json
+02_scripts/09_logs_monitoramento.py
+
+# --- PRIVACIDADE: DADOS DE CLIENTES ---
+# Não enviamos dados de faturamento para o GitHub
+01_clientes/
+
+# --- AMBIENTE E SISTEMA ---
 __pycache__/
+*.pyc
+.venv/
+env/
+.vscode/
+.ipynb_checkpoints/
+~$*
 *.log
 *.env
-.ipynb_checkpoints/
-venv/
-.vscode/

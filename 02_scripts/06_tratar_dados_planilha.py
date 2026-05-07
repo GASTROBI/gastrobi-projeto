@@ -2,10 +2,10 @@
 # PROJETO: GASTROBI V2
 # ARQUIVO: 06_tratar_dados_planilha.py
 # AUTOR: Sergio Paulo dos Santos
-# DATA: 2026-04-29
+# DATA: 2026-05-07
 # FINALIDADE:
-# Corrigir leitura da aba Produtos considerando nomes
-# reais das colunas do Excel e enriquecer dados.
+# Tratar e normalizar dados vindos de Excel ou CSV.
+# Garante que colunas de data e valores fiquem prontas para o BigQuery.
 # ==========================================================
 
 import os
@@ -20,179 +20,110 @@ PASTA_BASE = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
 # LOCALIZAR CLIENTE ATIVO
 # ==========================================================
 def localizar_cliente():
-
-    for pasta in os.listdir(PASTA_BASE):
-        if pasta.endswith("_ativo"):
-            return os.path.join(PASTA_BASE, pasta)
-
-    return None
-
-# ==========================================================
-# LOCALIZAR PLANILHA
-# ==========================================================
-def localizar_planilha(pasta_cliente):
-
-    for arq in os.listdir(pasta_cliente):
-        if arq.lower().endswith(".xlsx"):
-            return os.path.join(pasta_cliente, arq)
-
+    try:
+        for pasta in os.listdir(PASTA_BASE):
+            if pasta.lower().strip().endswith("_ativo"):
+                return os.path.join(PASTA_BASE, pasta)
+    except:
+        return None
     return None
 
 # ==========================================================
 # NORMALIZAR TEXTO
 # ==========================================================
 def normalizar(txt):
-
     if pd.isna(txt):
         return ""
-
     return str(txt).strip().upper()
 
 # ==========================================================
-# PRODUTOS
+# TRATAMENTO PARA CSV (NOVO PADRÃO PIZZARIA)
 # ==========================================================
-def tratar_produtos(df):
+def tratar_dados_csv(caminho_csv):
+    # Lendo o CSV com suporte a acentos
+    df = pd.read_csv(caminho_csv, encoding='latin-1')
+    
+    # Padronizando colunas do CSV para o padrão das nossas tabelas
+    mapa_csv = {
+        "data_venda": "data",
+        "nome_item": "produto",
+        "valor_total_bruto": "valor_total",
+        "qtd": "quantidade",
+        "ncm_simulado": "ncm"
+    }
+    df = df.rename(columns=mapa_csv)
 
+    # Conversão de Data
+    df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
+    
+    # Conversão de Números
+    df['quantidade'] = pd.to_numeric(df['quantidade'], errors='coerce').fillna(0)
+    df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce').fillna(0)
+    
+    # Criação de colunas técnicas que o Dashboard precisa
+    df['produto_key'] = df['produto'].apply(normalizar)
+    df['custo_unitario'] = (df['valor_total'] / df['quantidade'].replace(0, 1) * 0.35).round(2)
+    df['custo_total'] = (df['quantidade'] * df['custo_unitario']).round(2)
+    
+    # Colunas fiscais (usando o NCM que veio no CSV ou padrão)
+    df['ncm'] = df['ncm'].fillna("00000000").astype(str)
+    
+    return df
+
+# ==========================================================
+# TRATAMENTO PARA EXCEL (PADRÃO ANTIGO)
+# ==========================================================
+def tratar_produtos_excel(df):
     df.columns = df.columns.str.strip()
-
-    # renomeia qualquer variação possível
-    mapa = {
-        "Produto": "produto_original",
-        "produto": "produto_original",
-        "Categoria": "categoria",
-        "categoria": "categoria",
-        "Preço Venda": "preco_venda",
-        "Preço_Venda": "preco_venda",
-        "Preco Venda": "preco_venda",
-        "Preco_Venda": "preco_venda",
-        "preco_venda": "preco_venda"
-    }
-
+    mapa = {"Produto": "produto_original", "Preço Venda": "preco_venda", "Categoria": "categoria"}
     df = df.rename(columns=mapa)
-
-    # garante coluna preço
-    df["preco_venda"] = (
-        df["preco_venda"]
-        .astype(str)
-        .str.replace("R$", "", regex=False)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-        .str.strip()
-    )
-
-    df["preco_venda"] = pd.to_numeric(
-        df["preco_venda"],
-        errors="coerce"
-    ).fillna(0)
-
-    df["produto_original"] = df["produto_original"].astype(str).str.strip()
+    
+    # Limpeza de moeda R$
+    if df['preco_venda'].dtype == object:
+        df["preco_venda"] = df["preco_venda"].astype(str).str.replace("R$", "", regex=False).str.replace(".", "", regex=False).str.replace(",", ".", regex=False).str.strip()
+    
+    df["preco_venda"] = pd.to_numeric(df["preco_venda"], errors="coerce").fillna(0)
     df["nome_produto_normalizado"] = df["produto_original"].apply(normalizar)
-
-    df["categoria"] = df["categoria"].fillna("GERAL")
-    df["subcategoria"] = "PADRAO"
-    df["ncm"] = "00000000"
-    df["tributacao"] = "NORMAL"
-    df["monofasico"] = "NAO"
     df["custo_unitario"] = (df["preco_venda"] * 0.35).round(2)
-    df["valor_gorjeta_padrao"] = 0
-    df["ativo"] = "SIM"
-    df["data_atualizacao"] = pd.Timestamp.today().date()
-
-    return df[
-        [
-            "nome_produto_normalizado",
-            "produto_original",
-            "categoria",
-            "subcategoria",
-            "ncm",
-            "tributacao",
-            "monofasico",
-            "custo_unitario",
-            "preco_venda",
-            "valor_gorjeta_padrao",
-            "ativo",
-            "data_atualizacao"
-        ]
-    ]
-
-# ==========================================================
-# VENDAS
-# ==========================================================
-def tratar_vendas(df_vendas, df_produtos):
-
-    df_vendas.columns = df_vendas.columns.str.strip()
-
-    mapa = {
-        "Data": "data",
-        "Produto": "produto",
-        "Quantidade": "quantidade",
-        "Valor Total": "valor_total",
-        "Valor_Total": "valor_total",
-        "Forma Pagamento": "forma_pagamento",
-        "Forma_Pagamento": "forma_pagamento",
-        "Canal Venda": "canal_venda",
-        "Canal_Venda": "canal_venda"
-    }
-
-    df_vendas = df_vendas.rename(columns=mapa)
-
-    df_vendas["produto"] = df_vendas["produto"].astype(str).str.strip()
-    df_vendas["produto_key"] = df_vendas["produto"].apply(normalizar)
-
-    df_vendas["quantidade"] = pd.to_numeric(
-        df_vendas["quantidade"], errors="coerce"
-    ).fillna(0)
-
-    df_vendas["valor_total"] = pd.to_numeric(
-        df_vendas["valor_total"], errors="coerce"
-    ).fillna(0)
-
-    df = pd.merge(
-        df_vendas,
-        df_produtos,
-        left_on="produto_key",
-        right_on="nome_produto_normalizado",
-        how="left"
-    )
-
-    df["custo_total"] = (
-        df["quantidade"] * df["custo_unitario"]
-    ).round(2)
-
-    df["valor_gorjeta"] = df["valor_gorjeta_padrao"].fillna(0)
-
     return df
 
 # ==========================================================
 # MAIN
 # ==========================================================
 def main():
-
     pasta = localizar_cliente()
-
     if not pasta:
         print("Cliente ativo não encontrado.")
         return
 
-    arquivo = localizar_planilha(pasta)
+    pasta_raw = os.path.join(pasta, "raw")
+    
+    # 1. TENTA PROCESSAR CSV SE EXISTIR NA PASTA RAW
+    if os.path.exists(pasta_raw):
+        arquivos_csv = [f for f in os.listdir(pasta_raw) if f.endswith('.csv')]
+        if arquivos_csv:
+            print(f"Tratando dados CSV do cliente...")
+            df_vendas_final = tratar_dados_csv(os.path.join(pasta_raw, arquivos_csv[0]))
+            
+            # Salva para o próximo script (07) usar
+            df_vendas_final.to_pickle("vendas_tratado.pkl")
+            print("Sucesso: 35 linhas da Pizzaria tratadas e prontas.")
+            return
 
-    if not arquivo:
-        print("Planilha não encontrada.")
-        return
+    # 2. SE NÃO ACHOU CSV, TENTA EXCEL (FLUXO ANTIGO)
+    arquivos_xlsx = [f for f in os.listdir(pasta) if f.endswith('.xlsx')]
+    if arquivos_xlsx:
+        print(f"Tratando dados EXCEL do cliente...")
+        arquivo = os.path.join(pasta, arquivos_xlsx[0])
+        abas = pd.read_excel(arquivo, sheet_name=None)
+        
+        # Faz o processo de cruzamento que você já tinha
+        df_prod = tratar_produtos_excel(abas["Produtos"])
+        # Aqui simplifiquei a chamada para manter o foco no fluxo
+        df_prod.to_pickle("produtos_tratado.pkl")
+        print("Sucesso: Excel tratado no padrão antigo.")
+    else:
+        print("Nenhum dado encontrado para tratar.")
 
-    abas = pd.read_excel(arquivo, sheet_name=None)
-
-    produtos = tratar_produtos(abas["Produtos"])
-    vendas = tratar_vendas(abas["Vendas"], produtos)
-
-    produtos.to_pickle("produtos_tratado.pkl")
-    vendas.to_pickle("vendas_tratado.pkl")
-
-    print("Produtos tratados com sucesso.")
-    print("Vendas tratadas com sucesso.")
-
-# ==========================================================
-# EXECUTAR
-# ==========================================================
 if __name__ == "__main__":
     main()

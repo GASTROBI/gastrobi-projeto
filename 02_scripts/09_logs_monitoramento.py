@@ -1,92 +1,63 @@
 # ==========================================================
 # PROJETO: GASTROBI V2
 # ARQUIVO: 09_logs_monitoramento.py
-# AUTOR: Sergio Paulo dos Santos
-# DATA: 2026-04-29
-# FINALIDADE:
-# Registrar logs operacionais dos scripts do projeto
+# FINALIDADE: Vigia de Erros com Alerta por E-mail (SMTP Google)
 # ==========================================================
 
-import os
-import csv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # ==========================================================
-# CONFIGURAÇÕES
+# CONFIGURAÇÕES DE CONEXÃO (SEGURANÇA)
 # ==========================================================
-PASTA_LOGS = r"G:\Drives compartilhados\V2_GASTROBI\03_logs"
-ARQUIVO_LOG = "logs_gastrobi.csv"
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_REMETENTE = "sergio@gastrobisolution.com.br"
+# Senha de App fornecida
+EMAIL_SENHA = "iqdvvszrodbekzan" 
+EMAIL_DESTINATARIO = "sergio@gastrobisolution.com.br"
 
-# ==========================================================
-# CRIAR PASTA SE NÃO EXISTIR
-# ==========================================================
-def preparar_pasta():
+def enviar_alerta_erro(cliente, script, erro):
+    """Envia um e-mail imediato se um cliente falhar no fluxo."""
+    assunto = f"⚠️ ALERTA CRÍTICO: Erro no Cliente {cliente}"
+    
+    corpo = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif;">
+        <h2 style="color: #d9534f;">Falha detectada no Processamento GastroBI V2</h2>
+        <p><b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+        <p><b>Cliente:</b> {cliente}</p>
+        <p><b>Script que falhou:</b> {script}</p>
+        <hr>
+        <p style="color: #333; background: #f9f9f9; padding: 10px; border: 1px solid #ddd;">
+            <b>Detalhe do Erro:</b><br>{erro}
+        </p>
+        <hr>
+        <p><i>Este é um alerta automático do seu Motor de Escala GastroBI. Por favor, verifique a pasta do cliente.</i></p>
+    </body>
+    </html>
+    """
 
-    if not os.path.exists(PASTA_LOGS):
-        os.makedirs(PASTA_LOGS)
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_REMETENTE
+    msg['To'] = EMAIL_DESTINATARIO
+    msg['Subject'] = assunto
+    msg.attach(MIMEText(corpo, 'html'))
 
-# ==========================================================
-# CAMINHO ARQUIVO
-# ==========================================================
-def caminho_log():
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
+        server.sendmail(EMAIL_REMETENTE, EMAIL_DESTINATARIO, msg.as_string())
+        server.quit()
+        print(f">>> Alerta de e-mail enviado com sucesso para {EMAIL_DESTINATARIO}")
+    except Exception as e:
+        print(f"!!! Falha ao enviar e-mail: {e}")
 
-    return os.path.join(PASTA_LOGS, ARQUIVO_LOG)
-
-# ==========================================================
-# CRIAR CABEÇALHO
-# ==========================================================
-def criar_arquivo():
-
-    arquivo = caminho_log()
-
-    if not os.path.exists(arquivo):
-
-        with open(arquivo, mode="w", newline="", encoding="utf-8-sig") as f:
-
-            writer = csv.writer(f)
-
-            writer.writerow([
-                "data_hora",
-                "script",
-                "cliente",
-                "status",
-                "mensagem"
-            ])
-
-# ==========================================================
-# REGISTRAR LOG
-# ==========================================================
-def registrar(script, cliente, status, mensagem):
-
-    preparar_pasta()
-    criar_arquivo()
-
-    arquivo = caminho_log()
-
-    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    with open(arquivo, mode="a", newline="", encoding="utf-8-sig") as f:
-
-        writer = csv.writer(f)
-
-        writer.writerow([
-            agora,
-            script,
-            cliente,
-            status,
-            mensagem
-        ])
-
-    print("Log registrado com sucesso.")
-
-# ==========================================================
-# TESTE MANUAL
-# ==========================================================
-if __name__ == "__main__":
-
-    registrar(
-        "09_logs_monitoramento.py",
-        "restaurante_teste",
-        "SUCESSO",
-        "Sistema de logs criado e validado."
-    )
+def registrar_e_notificar(cliente, script, status, mensagem):
+    """Função chamada pelo main.py quando ocorre um erro."""
+    if status == "ERRO":
+        print(f"Disparando alerta de erro para {cliente}...")
+        enviar_alerta_erro(cliente, script, mensagem)

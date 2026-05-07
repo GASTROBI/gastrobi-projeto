@@ -1,7 +1,0 @@
-2026-04-18 16:10:27,442 - INFO - Sucesso: Pasta e arquivo criados via script!
-2026-04-18 16:20:04,869 - INFO - Sucesso: Pasta e arquivo criados via script!
-2026-04-18 16:23:49,000 - INFO - Sucesso! Arquivo criado em: c:\Users\profe\OneDrive\Desktop\V_2_GastroBI\01_clientes\01_restaurante_sergio_ativo\01_entrada_raw
-2026-04-18 17:06:13,967 - INFO - Sucesso! Arquivo criado em: g:\Drives compartilhados\V2_GASTROBI\01_clientes\01_restaurante_sergio_ativo\01_entrada_raw
-2026-04-19 09:50:58,553 - Erro: No columns to parse from file
-2026-04-19 10:02:36,010 - Sucesso! Arquivo lido. Colunas: ['data', 'produto_original', 'faturamento_bruto', 'qtd']
-2026-04-19 10:06:49,937 - Sucesso! Arquivo lido. Colunas: ['data', 'produto_original', 'faturamento_bruto', 'qtd']
