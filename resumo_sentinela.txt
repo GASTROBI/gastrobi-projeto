@@ -1,0 +1,7 @@
+📊 RELATÓRIO CONSULTIVO GASTROBI
+Data: 08/05/2026 18:43:41
+==================================================
+🟠 01_CLIENTE_RESTAURANTETESTE: Sem faturamento registrado hoje.
+🟠 02_CLIENTE_PIZZARIASERGIO: Sem faturamento registrado hoje.
+🟠 04_CLIENTE_PIZZARIA_VERACE: Sem faturamento registrado hoje.
+🟠 03_CLIENTE_CAFE_GOURMET: Sem faturamento registrado hoje.

@@ -1,63 +1,60 @@
-# ==========================================================
+# ==============================================================================
 # PROJETO: GASTROBI V2
 # ARQUIVO: 09_logs_monitoramento.py
-# FINALIDADE: Vigia de Erros com Alerta por E-mail (SMTP Google)
-# ==========================================================
+# AUTOR: Sergio Paulo dos Santos
+# DATA: 10/05/2026
+# FINALIDADE: Painel de controle para visualizar o status de todos os 
+#             clientes ativos no BigQuery e logs locais.
+# ==============================================================================
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+import os
+import re
+from google.cloud import bigquery
 
-# ==========================================================
-# CONFIGURAÇÕES DE CONEXÃO (SEGURANÇA)
-# ==========================================================
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_REMETENTE = "sergio@gastrobisolution.com.br"
-# Senha de App fornecida
-EMAIL_SENHA = "iqdvvszrodbekzan" 
-EMAIL_DESTINATARIO = "sergio@gastrobisolution.com.br"
+client = bigquery.Client()
+PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
 
-def enviar_alerta_erro(cliente, script, erro):
-    """Envia um e-mail imediato se um cliente falhar no fluxo."""
-    assunto = f"⚠️ ALERTA CRÍTICO: Erro no Cliente {cliente}"
-    
-    corpo = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif;">
-        <h2 style="color: #d9534f;">Falha detectada no Processamento GastroBI V2</h2>
-        <p><b>Data/Hora:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
-        <p><b>Cliente:</b> {cliente}</p>
-        <p><b>Script que falhou:</b> {script}</p>
-        <hr>
-        <p style="color: #333; background: #f9f9f9; padding: 10px; border: 1px solid #ddd;">
-            <b>Detalhe do Erro:</b><br>{erro}
-        </p>
-        <hr>
-        <p><i>Este é um alerta automático do seu Motor de Escala GastroBI. Por favor, verifique a pasta do cliente.</i></p>
-    </body>
-    </html>
-    """
+def gerar_nome_dataset(nome_pasta):
+    nome = re.sub(r"^\d+_", "", nome_pasta.lower()).replace("_ativo", "").replace("cliente", "").strip("_")
+    return re.sub(r"[^a-z0-9_]", "", nome)
 
-    msg = MIMEMultipart()
-    msg['From'] = EMAIL_REMETENTE
-    msg['To'] = EMAIL_DESTINATARIO
-    msg['Subject'] = assunto
-    msg.attach(MIMEText(corpo, 'html'))
+def monitorar():
+    print(f"\n{'='*60}")
+    print(f"{'PAINEL DE MONITORAMENTO GASTROBI V2':^60}")
+    print(f"{'='*60}\n")
 
-    try:
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
-        server.sendmail(EMAIL_REMETENTE, EMAIL_DESTINATARIO, msg.as_string())
-        server.quit()
-        print(f">>> Alerta de e-mail enviado com sucesso para {EMAIL_DESTINATARIO}")
-    except Exception as e:
-        print(f"!!! Falha ao enviar e-mail: {e}")
+    pastas_ativas = [p for p in os.listdir(PASTA_CLIENTES) if "_ativo" in p.lower()]
 
-def registrar_e_notificar(cliente, script, status, mensagem):
-    """Função chamada pelo main.py quando ocorre um erro."""
-    if status == "ERRO":
-        print(f"Disparando alerta de erro para {cliente}...")
-        enviar_alerta_erro(cliente, script, mensagem)
+    if not pastas_ativas:
+        print("!!! [AVISO]: Nenhum cliente ativo encontrado na pasta 01_clientes.")
+        return
+
+    for pasta in pastas_ativas:
+        dataset_id = gerar_nome_dataset(pasta)
+        print(f"📊 CLIENTE: {pasta.upper()}")
+        
+        # Verifica Tabelas no BigQuery
+        tabelas_foco = ["tb_vendas_fato", "tb_produto_dim", "tb_kpis"]
+        status_bq = []
+        
+        for tab in tabelas_foco:
+            try:
+                tabela_ref = client.get_table(f"{client.project}.{dataset_id}.{tab}")
+                status_bq.append(f"{tab} ({tabela_ref.num_rows} linhas)")
+            except:
+                status_bq.append(f"{tab} (Vazia/Não criada)")
+
+        print(f"   ☁️ BigQuery: { ' | '.join(status_bq) }")
+
+        # Verifica Logs Locais
+        caminho_log = os.path.join(PASTA_CLIENTES, pasta, "99_log")
+        if os.path.exists(caminho_log):
+            arquivos_log = os.listdir(caminho_log)
+            print(f"   📂 Logs Locais: {len(arquivos_log)} arquivos encontrados em 99_log")
+        else:
+            print(f"   ⚠️ Logs Locais: Pasta 99_log não encontrada.")
+        
+        print(f"{'-'*60}")
+
+if __name__ == "__main__":
+    monitorar()
