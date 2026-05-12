@@ -2,82 +2,85 @@
 # PROJETO: GastroBI - Inteligência de Negócios para Food Service
 # ARQUIVO: 02_scripts/06_tratar_dados_planilha.py
 # AUTOR: Sergio Paulo dos Santos
-# DATA: 10/05/2026
-# VERSÃO: 2.6 - Chave Mestra para Movimentação e Vendas
-# OBJETIVO: Ajuste fino para reconhecer arquivos de 'movimento' como Vendas.
+# DATA: 12/05/2026
+# VERSÃO: 2.8 - Chave Mestra Universal (CSV, Excel e JSON)
+# OBJETIVO: Processar múltiplos formatos de entrada de forma automática e escalável.
 # ==============================================================================
 
 import pandas as pd
 import os
-import glob
-from datetime import datetime
+import json
 
-# --- CONFIGURAÇÕES ---
-PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
+# Configuração de Caminho Raiz
+PASTA_RAIZ = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
 
-def registrar_log_local(caminho_cliente, mensagem):
-    pasta_log = os.path.join(caminho_cliente, "99_log")
-    if not os.path.exists(pasta_log): os.makedirs(pasta_log)
-    arquivo_log = os.path.join(pasta_log, "log_tratamento.txt")
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(arquivo_log, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] [TRATAMENTO]: {mensagem}\n")
-
-def executar():
-    print(f"\n=== ⚙️ RE-PROCESSANDO TRATAMENTO (AJUSTE CHURRASCARIA) ===")
-    pastas = [p for p in os.listdir(PASTA_CLIENTES) if "_ativo" in p.lower()]
+def tratar_dados():
+    print("="*80)
+    print(f"{'ENGINE DE TRATAMENTO GASTROBI V2 - MOTOR UNIVERSAL':^80}")
+    print("="*80)
     
-    for pasta in pastas:
-        caminho_base = os.path.join(PASTA_CLIENTES, pasta)
-        caminho_in = os.path.join(caminho_base, "01_entrada_raw")
-        caminho_out = os.path.join(caminho_base, "02_processed")
-        if not os.path.exists(caminho_out): os.makedirs(caminho_out)
-        
-        arquivos = glob.glob(os.path.join(caminho_in, "*.csv")) + glob.glob(os.path.join(caminho_in, "*.xlsx"))
-        if not arquivos: continue
+    if not os.path.exists(PASTA_RAIZ):
+        print(f"❌ ERRO: Caminho raiz não acessível: {PASTA_RAIZ}")
+        return
 
-        print(f"\n>>> Cliente: {pasta.upper()}")
+    pastas_ativas = [p for p in os.listdir(PASTA_RAIZ) if "_ativo" in p.lower()]
+    
+    for pasta in pastas_ativas:
+        caminho_cliente = os.path.join(PASTA_RAIZ, pasta)
         
-        for arq in arquivos:
-            nome_original = os.path.basename(arq).lower()
+        # Identificação da pasta de entrada
+        subpastas = os.listdir(caminho_cliente)
+        pasta_raw_nome = next((f for f in subpastas if "01_entrada_raw" in f.lower()), None)
+        
+        if not pasta_raw_nome:
+            continue
+            
+        caminho_raw = os.path.join(caminho_cliente, pasta_raw_nome)
+        arquivos = [f for f in os.listdir(caminho_raw) if not f.startswith('~$')]
+        
+        # Busca arquivos de vendas (CSV, XLSX ou JSON)
+        venda_bruta = [f for f in arquivos if 
+                       (f.lower().endswith('.csv') or 
+                        f.lower().endswith('.xlsx') or 
+                        f.lower().endswith('.json')) and 
+                       ("_final" not in f.lower())]
+        
+        if venda_bruta:
+            arq_origem = os.path.join(caminho_raw, venda_bruta[0])
+            print(f">>> Cliente: {pasta:<40} | Processando: {venda_bruta[0]}")
+            
             try:
-                df = pd.read_excel(arq) if arq.endswith('.xlsx') else pd.read_csv(arq, sep=None, engine='python', encoding='latin-1')
-                df.columns = [str(c).strip().lower() for c in df.columns]
+                # 1. LEITURA DE JSON
+                if arq_origem.lower().endswith('.json'):
+                    df = pd.read_json(arq_origem)
                 
-                # Mapeamento expandido
-                mapeamento = {
-                    'valor total bruto': 'valor_total', 'vlr total': 'valor_total', 'venda': 'valor_total', 'total': 'valor_total',
-                    'nome item': 'item', 'produto': 'item', 'descrição': 'item', 'nome': 'item',
-                    'data venda': 'data', 'movimento': 'data', 'data': 'data', 'emissão': 'data',
-                    'qtd': 'quantidade', 'quantidade': 'quantidade',
-                    'custo unitario': 'custo_unitario', 'custo': 'custo_unitario', 'vlr custo': 'custo_unitario'
-                }
-                df = df.rename(columns=mapeamento)
-
-                # --- LÓGICA DE CLASSIFICAÇÃO MELHORADA ---
-                # Agora 'movimento' também é considerado Venda
-                if any(x in nome_original for x in ["venda", "movimento", "faturamento"]):
-                    tipo = "vendas_final.csv"
-                    for col in ['data', 'item', 'valor_total', 'quantidade']:
-                        if col not in df.columns: df[col] = 0
-                    msg = f"VENDAS IDENTIFICADAS: {nome_original}"
+                # 2. LEITURA DE CSV (Com tratamento de Encoding)
+                elif arq_origem.lower().endswith('.csv'):
+                    try:
+                        df = pd.read_csv(arq_origem, sep=None, engine='python', encoding='utf-8-sig')
+                    except:
+                        df = pd.read_csv(arq_origem, sep=None, engine='python', encoding='iso-8859-1')
                 
-                elif any(x in nome_original for x in ["produto", "estoque", "item", "dim"]):
-                    tipo = "produtos_final.csv"
-                    if 'custo_unitario' not in df.columns: df['custo_unitario'] = 0.0
-                    msg = f"PRODUTOS IDENTIFICADOS: {nome_original}"
-                
+                # 3. LEITURA DE EXCEL
                 else:
-                    tipo = f"extra_{nome_original}.csv"
-                    msg = f"ARQUIVO EXTRA: {nome_original}"
+                    df = pd.read_excel(arq_origem)
 
-                df.to_csv(os.path.join(caminho_out, tipo), index=False, encoding='utf-8-sig')
-                print(f"  ✔️ {msg}")
-                registrar_log_local(caminho_base, msg)
+                # Padronização de Colunas
+                df.columns = [str(c).strip() for c in df.columns]
+                
+                # Salva o resultado unificado para o script 07
+                caminho_saida = os.path.join(caminho_raw, "vendas_final.csv")
+                df.to_csv(caminho_saida, index=False, encoding='utf-8-sig')
+                print(f"   ✔️ SUCESSO: vendas_final.csv gerado a partir de {venda_bruta[0].split('.')[-1].upper()}.")
                 
             except Exception as e:
-                print(f"  ❌ Erro: {str(e)}")
-                registrar_log_local(caminho_base, f"Erro: {str(e)}")
+                print(f"   ❌ ERRO NO PROCESSAMENTO: {e}")
+        else:
+            print(f">>> Cliente: {pasta:<40} | ⚠️ Sem arquivos de entrada.")
+
+    print("\n" + "="*80)
+    print(f"{'MOTOR DE TRATAMENTO FINALIZADO':^80}")
+    print("="*80)
 
 if __name__ == "__main__":
-    executar()
+    tratar_dados()

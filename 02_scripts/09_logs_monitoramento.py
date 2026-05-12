@@ -1,60 +1,85 @@
 # ==============================================================================
-# PROJETO: GASTROBI V2
-# ARQUIVO: 09_logs_monitoramento.py
-# AUTOR: Sergio Paulo dos Santos
-# DATA: 10/05/2026
-# FINALIDADE: Painel de controle para visualizar o status de todos os 
-#             clientes ativos no BigQuery e logs locais.
+# PROJETO: GASTROBI V2 - ECOSSISTEMA DE INTELIGÊNCIA
+# CONSULTORIA: SERGIO PAULO DOS SANTOS
+# ARQUIVO: 09_logs_monitoramento.py (VERSÃO AUDITORIA INDIVIDUALIZADA)
+# OBJETIVO: Gerar logs no terminal, Excel Consolidado e Excels por Cliente.
 # ==============================================================================
 
+import pandas as pd
 import os
-import re
 from google.cloud import bigquery
+from datetime import datetime
 
-client = bigquery.Client()
-PASTA_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
+# CONFIGURAÇÕES DE CAMINHOS
+PROJECT_ID = "v2-gastrobi-lab"
+PASTA_RAIZ_CLIENTES = r"G:\Drives compartilhados\V2_GASTROBI\01_clientes"
+PASTA_LOG_GERAL = r"G:\Drives compartilhados\V2_GASTROBI\99_log"
+client = bigquery.Client(project=PROJECT_ID)
 
-def gerar_nome_dataset(nome_pasta):
-    nome = re.sub(r"^\d+_", "", nome_pasta.lower()).replace("_ativo", "").replace("cliente", "").strip("_")
-    return re.sub(r"[^a-z0-9_]", "", nome)
-
-def monitorar():
-    print(f"\n{'='*60}")
+def gerar_monitoramento():
+    print("="*60)
     print(f"{'PAINEL DE MONITORAMENTO GASTROBI V2':^60}")
-    print(f"{'='*60}\n")
+    print("="*60)
 
-    pastas_ativas = [p for p in os.listdir(PASTA_CLIENTES) if "_ativo" in p.lower()]
+    lista_consolidada = []
+    pastas_ativas = [p for p in os.listdir(PASTA_RAIZ_CLIENTES) if "_ativo" in p.lower()]
+    
+    data_atual = datetime.now().strftime("%d/%m/%Y")
+    hora_atual = datetime.now().strftime("%H:%M:%S")
+    timestamp_arquivo = datetime.now().strftime("%Y%m%d_%H%M")
 
-    if not pastas_ativas:
-        print("!!! [AVISO]: Nenhum cliente ativo encontrado na pasta 01_clientes.")
-        return
-
-    for pasta in pastas_ativas:
-        dataset_id = gerar_nome_dataset(pasta)
-        print(f"📊 CLIENTE: {pasta.upper()}")
+    for pasta_cliente in pastas_ativas:
+        dataset_id = pasta_cliente.split("_")[2].lower() if "_" in pasta_cliente else pasta_cliente.lower()
+        print(f"\n📊 CLIENTE: {pasta_cliente}")
         
-        # Verifica Tabelas no BigQuery
-        tabelas_foco = ["tb_vendas_fato", "tb_produto_dim", "tb_kpis"]
-        status_bq = []
-        
-        for tab in tabelas_foco:
+        tabelas = ["tb_vendas_fato", "tb_produtos_dim", "tb_kpis"]
+        dados_do_cliente = []
+
+        for tab in tabelas:
+            tabela_ref = f"{PROJECT_ID}.{dataset_id}.{tab}"
             try:
-                tabela_ref = client.get_table(f"{client.project}.{dataset_id}.{tab}")
-                status_bq.append(f"{tab} ({tabela_ref.num_rows} linhas)")
+                tbl = client.get_table(tabela_ref)
+                linhas = tbl.num_rows
             except:
-                status_bq.append(f"{tab} (Vazia/Não criada)")
+                linhas = 0
+            
+            registro = {
+                "Data": data_atual,
+                "Hora": hora_atual,
+                "Cliente": pasta_cliente.upper(),
+                "Tabela": tab,
+                "Linhas_BigQuery": linhas,
+                "Status": "OK" if linhas > 0 else "VAZIA/PENDENTE"
+            }
+            dados_do_cliente.append(registro)
+            lista_consolidada.append(registro)
 
-        print(f"   ☁️ BigQuery: { ' | '.join(status_bq) }")
+        print(f"   ☁️ BigQuery: fato ({dados_do_cliente[0]['Linhas_BigQuery']}) | dim ({dados_do_cliente[1]['Linhas_BigQuery']}) | kpis ({dados_do_cliente[2]['Linhas_BigQuery']})")
 
-        # Verifica Logs Locais
-        caminho_log = os.path.join(PASTA_CLIENTES, pasta, "99_log")
-        if os.path.exists(caminho_log):
-            arquivos_log = os.listdir(caminho_log)
-            print(f"   📂 Logs Locais: {len(arquivos_log)} arquivos encontrados em 99_log")
-        else:
-            print(f"   ⚠️ Logs Locais: Pasta 99_log não encontrada.")
+        # --- GERAÇÃO DO EXCEL INDIVIDUAL DO CLIENTE ---
+        caminho_log_cliente = os.path.join(PASTA_RAIZ_CLIENTES, pasta_cliente, "99_log")
         
-        print(f"{'-'*60}")
+        if os.path.exists(caminho_log_cliente):
+            df_individual = pd.DataFrame(dados_do_cliente)
+            nome_excel_individual = f"Auditoria_{pasta_cliente}_{timestamp_arquivo}.xlsx"
+            df_individual.to_excel(os.path.join(caminho_log_cliente, nome_excel_individual), index=False)
+            print(f"   📂 Relatório individual gerado em: {pasta_cliente}/99_log")
+        else:
+            print(f"   ⚠️ Pasta 99_log não encontrada para {pasta_cliente}. Pulando Excel individual.")
+
+    # --- GERAÇÃO DO EXCEL CONSOLIDADO GERAL ---
+    if lista_consolidada:
+        df_consolidado = pd.DataFrame(lista_consolidada)
+        nome_excel_geral = f"Auditoria_Consolidada_{timestamp_arquivo}.xlsx"
+        caminho_final_geral = os.path.join(PASTA_LOG_GERAL, nome_excel_geral)
+        
+        try:
+            df_consolidado.to_excel(caminho_final_geral, index=False)
+            print(f"\n✅ MASTER EXCEL GERADO: {nome_excel_geral}")
+        except Exception as e:
+            print(f"\n❌ ERRO NO MASTER EXCEL: {e}")
+
+    print("\n" + "="*60)
 
 if __name__ == "__main__":
-    monitorar()
+    gerar_monitoramento()
